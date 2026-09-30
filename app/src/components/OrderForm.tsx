@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import Image from "next/image";
 import Script from "next/script";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { createOrderAction } from "@/lib/actions/orders";
 import { getFieldRequirements } from "@/lib/orderRules";
@@ -53,6 +53,7 @@ interface ColorOption {
 
 const TOWEL_NONE = "미포함 (타올 구매 안 함)";
 const EMBROIDERY_NONE = "해당없음 (타올 미포함)";
+const DRAFT_KEY = "everycare-order-draft-v1";
 
 const TOWEL_COLORS: ColorOption[] = [
   { value: TOWEL_NONE, hex: null },
@@ -318,6 +319,7 @@ export default function OrderForm() {
   const [previewImg, setPreviewImg] = useState<string | null>(null);
   const [mode, setMode] = useState<"edit" | "review">("edit");
   const [reviewData, setReviewData] = useState<OrderFormValues | null>(null);
+  const [draftRestored, setDraftRestored] = useState(false);
 
   const {
     register,
@@ -327,6 +329,7 @@ export default function OrderForm() {
     setValue,
     getValues,
     setError,
+    reset,
     formState: { errors },
   } = useForm<OrderFormValues>({
     resolver: zodResolver(orderFormSchema),
@@ -339,6 +342,57 @@ export default function OrderForm() {
       embroidery_color: "",
     },
   });
+
+  // 페이지에 처음 들어왔을 때 브라우저에 저장된 임시 작성분이 있으면 불러온다.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        reset(JSON.parse(raw));
+        setDraftRestored(true);
+      }
+    } catch {
+      // localStorage를 쓸 수 없는 환경이면 조용히 무시
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 입력할 때마다 브라우저에 자동으로 임시 저장한다 (제출 전까지).
+  // clearDraft()가 reset()을 호출할 때도 이 구독이 발동되는데, 그때는
+  // 방금 지운 값을 곧바로 되살려 쓰게 되므로 suppressAutosaveRef로 잠시 막는다.
+  const suppressAutosaveRef = useRef(false);
+  useEffect(() => {
+    const subscription = watch((value) => {
+      if (suppressAutosaveRef.current) return;
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(value));
+      } catch {
+        // 저장 공간이 꽉 찼거나 접근 불가한 경우 조용히 무시
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [watch]);
+
+  const clearDraft = () => {
+    suppressAutosaveRef.current = true;
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+    } catch {
+      // 무시
+    }
+    reset({
+      label_design: "A",
+      recipient_zipcode: "",
+      recipient_address1: "",
+      recipient_phone: "",
+      towel_color: "",
+      embroidery_color: "",
+    });
+    setDraftRestored(false);
+    setTimeout(() => {
+      suppressAutosaveRef.current = false;
+    }, 0);
+  };
 
   const labelDesign = watch("label_design");
   const req = getFieldRequirements(labelDesign);
@@ -415,6 +469,13 @@ export default function OrderForm() {
     setSubmitError(null);
     setSubmitting(true);
     try {
+      // 제출이 성공하면 완료 페이지로 이동해버려 이 아래 코드가 실행되지
+      // 않으므로, 임시 저장분은 요청을 보내기 직전에 미리 지운다.
+      try {
+        localStorage.removeItem(DRAFT_KEY);
+      } catch {
+        // 무시
+      }
       const result = await createOrderAction(reviewData);
       if (result && !result.ok) {
         setSubmitError(result.message);
@@ -440,6 +501,18 @@ export default function OrderForm() {
       <form onSubmit={handleSubmit(handleReview)} className="space-y-6">
         {mode === "edit" && (
           <>
+        {draftRestored && (
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-brand/30 bg-brand/5 px-4 py-3 text-sm">
+            <span>이전에 작성하시던 내용을 불러왔어요.</span>
+            <button
+              type="button"
+              onClick={clearDraft}
+              className="shrink-0 text-xs font-medium text-muted underline hover:text-brand"
+            >
+              처음부터 다시 쓰기
+            </button>
+          </div>
+        )}
         {/* 라벨 디자인 선택 */}
         <div className={sectionClass}>
           <h2 className="font-semibold">라벨 디자인 선택</h2>
