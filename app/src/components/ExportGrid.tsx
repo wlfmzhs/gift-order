@@ -9,7 +9,6 @@ interface Row {
   export_recipient_display: string;
   recipient_phone: string;
   address_full: string;
-  address_detail: string;
   export_item_name: string;
   export_delivery_message: string;
   export_amount: string;
@@ -27,7 +26,6 @@ function toRow(o: OrderRecord): Row {
     export_recipient_display: o.export_recipient_display,
     recipient_phone: o.recipient_phone,
     address_full: `${o.recipient_address1} ${o.recipient_address2 ?? ""}`.trim(),
-    address_detail: o.recipient_address2 ?? "",
     export_item_name: o.export_item_name,
     export_delivery_message: o.export_delivery_message,
     export_amount: o.export_amount,
@@ -88,7 +86,6 @@ export default function ExportGrid({ orders }: { orders: OrderRecord[] }) {
         r.export_recipient_display,
         r.recipient_phone,
         r.address_full,
-        r.address_detail,
         r.export_item_name,
         r.export_delivery_message,
         r.export_amount,
@@ -148,8 +145,7 @@ export default function ExportGrid({ orders }: { orders: OrderRecord[] }) {
                   />
                 </td>
                 <td className="whitespace-nowrap px-2 py-1">{r.recipient_phone}</td>
-                <td className="min-w-[220px] px-2 py-1">{r.address_full}</td>
-                <td className="min-w-[140px] px-2 py-1">{r.address_detail}</td>
+                <td className="min-w-[260px] px-2 py-1">{r.address_full}</td>
                 <td className="px-1 py-1">
                   <input
                     className={cellInputClass}

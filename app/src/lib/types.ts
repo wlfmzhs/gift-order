@@ -71,8 +71,7 @@ export interface OrderFilter {
 export const EXPORT_COLUMNS = [
   "받는분성명",
   "받는분전화번호",
-  "주소(전체)",
-  "주소(상세)",
+  "받는분주소",
   "품목명",
   "배송메세지1",
   "금액",
