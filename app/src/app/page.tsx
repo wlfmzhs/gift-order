@@ -49,7 +49,10 @@ export default function Home() {
         </section>
       </main>
       <footer className="border-t border-border px-5 py-6 text-center text-xs text-muted">
-        © everycare
+        © everycare ·{" "}
+        <Link href="/admin" className="hover:text-brand hover:underline">
+          관리자
+        </Link>
       </footer>
     </>
   );
