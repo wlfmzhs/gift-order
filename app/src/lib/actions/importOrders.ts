@@ -24,6 +24,16 @@ function findHeaderIndex(headerRow: string[], aliases: string[]): number {
   return headerRow.findIndex((h) => aliases.includes(String(h).trim()));
 }
 
+interface ParsedLine {
+  rowIndex: number;
+  excelRecipientName: string;
+  excelPhone: string;
+  excelItemName: string;
+  excelAmount: string;
+  excelDeliveryMessage: string;
+  excelStatus: string;
+}
+
 export interface ImportCandidate {
   orderId: string;
   orderCode: string;
@@ -33,7 +43,9 @@ export interface ImportCandidate {
 }
 
 export interface ImportRow {
-  rowIndex: number;
+  key: string;
+  rowIndexes: number[];
+  mergedRowCount: number;
   excelRecipientName: string;
   excelPhone: string;
   excelItemName: string;
@@ -47,6 +59,7 @@ export interface ImportPreviewResult {
   ok: true;
   rows: ImportRow[];
   skippedCancelledCount: number;
+  exactDuplicateCount: number;
   stillUnmatchedOrders: {
     orderId: string;
     orderCode: string;
@@ -58,6 +71,16 @@ export interface ImportPreviewResult {
 export interface ImportPreviewError {
   ok: false;
   message: string;
+}
+
+function toCandidate(o: OrderRecord): ImportCandidate {
+  return {
+    orderId: o.id,
+    orderCode: o.order_code,
+    recipientName: o.recipient_name,
+    recipientPhone: o.recipient_phone,
+    hasExistingItemName: o.export_item_name.trim() !== "",
+  };
 }
 
 export async function previewHomepageImportAction(
@@ -114,18 +137,8 @@ export async function previewHomepageImportAction(
     };
   }
 
-  const allOrders = await db.list();
-  const ordersByPhone = new Map<string, OrderRecord[]>();
-  for (const o of allOrders) {
-    const key = normalizePhone(o.recipient_phone);
-    if (!key) continue;
-    const arr = ordersByPhone.get(key) ?? [];
-    arr.push(o);
-    ordersByPhone.set(key, arr);
-  }
-
-  const rows: ImportRow[] = [];
-  const matchedOrderIds = new Set<string>();
+  // 1) 엑셀 행 파싱 (취소/환불 건 제외)
+  const parsedLines: ParsedLine[] = [];
   let skippedCancelledCount = 0;
 
   for (let i = 1; i < raw.length; i++) {
@@ -138,41 +151,115 @@ export async function previewHomepageImportAction(
       continue;
     }
 
-    const excelRecipientName = String(line[col.recipient_name] ?? "").trim();
-    const excelPhone = String(line[col.phone] ?? "").trim();
-    const excelItemName =
-      col.item_name !== -1 ? String(line[col.item_name] ?? "").trim() : "";
-    const excelAmount = col.amount !== -1 ? String(line[col.amount] ?? "").trim() : "";
-    const excelDeliveryMessage =
-      col.delivery_message !== -1
-        ? String(line[col.delivery_message] ?? "").trim()
-        : "";
-
-    const phoneKey = normalizePhone(excelPhone);
-    const matches = phoneKey ? ordersByPhone.get(phoneKey) ?? [] : [];
-
-    const candidates: ImportCandidate[] = matches.map((o) => {
-      matchedOrderIds.add(o.id);
-      return {
-        orderId: o.id,
-        orderCode: o.order_code,
-        recipientName: o.recipient_name,
-        recipientPhone: o.recipient_phone,
-        hasExistingItemName: o.export_item_name.trim() !== "",
-      };
-    });
-
-    rows.push({
+    parsedLines.push({
       rowIndex: i,
-      excelRecipientName,
-      excelPhone,
-      excelItemName,
-      excelAmount,
-      excelDeliveryMessage,
+      excelRecipientName: String(line[col.recipient_name] ?? "").trim(),
+      excelPhone: String(line[col.phone] ?? "").trim(),
+      excelItemName:
+        col.item_name !== -1 ? String(line[col.item_name] ?? "").trim() : "",
+      excelAmount: col.amount !== -1 ? String(line[col.amount] ?? "").trim() : "",
+      excelDeliveryMessage:
+        col.delivery_message !== -1
+          ? String(line[col.delivery_message] ?? "").trim()
+          : "",
       excelStatus,
-      candidates,
     });
   }
+
+  // 2) 완전히 동일한 행(같은 사람/같은 상품/같은 금액)은 파일 중복으로 보고 하나로 합침
+  const seenExact = new Set<string>();
+  const dedupedLines: ParsedLine[] = [];
+  let exactDuplicateCount = 0;
+
+  for (const line of parsedLines) {
+    const dupKey = [
+      normalizePhone(line.excelPhone),
+      line.excelRecipientName,
+      line.excelItemName,
+      line.excelAmount,
+      line.excelDeliveryMessage,
+    ].join("|");
+    if (seenExact.has(dupKey)) {
+      exactDuplicateCount++;
+      continue;
+    }
+    seenExact.add(dupKey);
+    dedupedLines.push(line);
+  }
+
+  // 3) 연락처 기준으로 기존 주문서와 매칭
+  const allOrders = await db.list();
+  const ordersByPhone = new Map<string, OrderRecord[]>();
+  for (const o of allOrders) {
+    const key = normalizePhone(o.recipient_phone);
+    if (!key) continue;
+    const arr = ordersByPhone.get(key) ?? [];
+    arr.push(o);
+    ordersByPhone.set(key, arr);
+  }
+
+  const matchedOrderIds = new Set<string>();
+  const singleMatchGroups = new Map<string, ParsedLine[]>();
+  const otherRows: ImportRow[] = [];
+
+  for (const line of dedupedLines) {
+    const phoneKey = normalizePhone(line.excelPhone);
+    const matches = phoneKey ? ordersByPhone.get(phoneKey) ?? [] : [];
+    matches.forEach((o) => matchedOrderIds.add(o.id));
+
+    if (matches.length === 1) {
+      // 같은 주문에 매칭되는 엑셀 행이 여러 개면(추가상품 등) 아래에서 합침
+      const arr = singleMatchGroups.get(matches[0].id) ?? [];
+      arr.push(line);
+      singleMatchGroups.set(matches[0].id, arr);
+    } else {
+      otherRows.push({
+        key: `row-${line.rowIndex}`,
+        rowIndexes: [line.rowIndex],
+        mergedRowCount: 1,
+        excelRecipientName: line.excelRecipientName,
+        excelPhone: line.excelPhone,
+        excelItemName: line.excelItemName,
+        excelAmount: line.excelAmount,
+        excelDeliveryMessage: line.excelDeliveryMessage,
+        excelStatus: line.excelStatus,
+        candidates: matches.map(toCandidate),
+      });
+    }
+  }
+
+  // 4) 한 주문에 엑셀 행이 여러 개 매칭되면(상품 여러 줄) 품목명은 합치고 금액은 합산
+  const mergedRows: ImportRow[] = [];
+  for (const [orderId, lines] of singleMatchGroups) {
+    const order = allOrders.find((o) => o.id === orderId)!;
+    const itemNames = Array.from(
+      new Set(lines.map((l) => l.excelItemName).filter(Boolean))
+    );
+    const amountSum = lines.reduce((sum, l) => {
+      const n = parseInt(l.excelAmount.replace(/\D/g, ""), 10);
+      return sum + (Number.isFinite(n) ? n : 0);
+    }, 0);
+    const deliveryMessages = Array.from(
+      new Set(lines.map((l) => l.excelDeliveryMessage).filter(Boolean))
+    );
+
+    mergedRows.push({
+      key: orderId,
+      rowIndexes: lines.map((l) => l.rowIndex),
+      mergedRowCount: lines.length,
+      excelRecipientName: lines[0].excelRecipientName,
+      excelPhone: lines[0].excelPhone,
+      excelItemName: itemNames.join(" + "),
+      excelAmount: String(amountSum),
+      excelDeliveryMessage: deliveryMessages.join(" / "),
+      excelStatus: lines[0].excelStatus,
+      candidates: [toCandidate(order)],
+    });
+  }
+
+  const rows = [...mergedRows, ...otherRows].sort(
+    (a, b) => a.rowIndexes[0] - b.rowIndexes[0]
+  );
 
   const stillUnmatchedOrders = allOrders
     .filter((o) => !matchedOrderIds.has(o.id) && o.export_item_name.trim() === "")
@@ -183,7 +270,13 @@ export async function previewHomepageImportAction(
       recipientPhone: o.recipient_phone,
     }));
 
-  return { ok: true, rows, skippedCancelledCount, stillUnmatchedOrders };
+  return {
+    ok: true,
+    rows,
+    skippedCancelledCount,
+    exactDuplicateCount,
+    stillUnmatchedOrders,
+  };
 }
 
 export interface ApplyMatch {

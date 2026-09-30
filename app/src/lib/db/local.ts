@@ -106,4 +106,9 @@ export const localOrdersDB: OrdersDB = {
     await writeAll(orders);
     return orders[idx];
   },
+
+  async delete(id) {
+    const orders = await readAll();
+    await writeAll(orders.filter((o) => o.id !== id));
+  },
 };

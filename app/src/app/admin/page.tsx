@@ -1,5 +1,5 @@
-import Link from "next/link";
 import AdminHeader from "@/components/AdminHeader";
+import AdminOrderRow from "@/components/AdminOrderRow";
 import { db } from "@/lib/db";
 import type { OrderStatus } from "@/lib/types";
 
@@ -51,7 +51,7 @@ export default async function AdminDashboardPage({
           </form>
 
           <div className="mt-6 overflow-x-auto rounded-2xl border border-border bg-surface">
-            <table className="w-full min-w-[900px] text-sm">
+            <table className="w-full min-w-[1100px] text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs text-muted">
                   <th className="px-4 py-3">주문번호</th>
@@ -60,40 +60,18 @@ export default async function AdminDashboardPage({
                   <th className="px-4 py-3">받는분</th>
                   <th className="px-4 py-3">행사일</th>
                   <th className="px-4 py-3">발송일</th>
-                  <th className="px-4 py-3">상태</th>
+                  <th className="px-2 py-3">상태</th>
+                  <th className="px-2 py-3">송장번호</th>
+                  <th className="px-2 py-3">관리</th>
                 </tr>
               </thead>
               <tbody>
                 {orders.map((o) => (
-                  <tr
-                    key={o.id}
-                    className="border-b border-border last:border-0 hover:bg-background"
-                  >
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/admin/orders/${o.id}`}
-                        className="font-medium text-brand hover:underline"
-                      >
-                        {o.order_code}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-muted">
-                      {o.created_at.slice(0, 10)}
-                    </td>
-                    <td className="px-4 py-3">{o.label_design}</td>
-                    <td className="px-4 py-3">{o.recipient_name}</td>
-                    <td className="px-4 py-3">{o.event_date}</td>
-                    <td className="px-4 py-3">{o.ship_date}</td>
-                    <td className="px-4 py-3">
-                      <span className="rounded-full bg-brand/10 px-2.5 py-1 text-xs font-medium text-brand">
-                        {o.status}
-                      </span>
-                    </td>
-                  </tr>
+                  <AdminOrderRow key={o.id} order={o} />
                 ))}
                 {orders.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-muted">
+                    <td colSpan={9} className="px-4 py-8 text-center text-muted">
                       주문이 없습니다.
                     </td>
                   </tr>

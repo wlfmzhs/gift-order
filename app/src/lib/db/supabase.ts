@@ -111,4 +111,9 @@ export const supabaseOrdersDB: OrdersDB = {
     if (error) throw new Error(error.message);
     return data as OrderRecord;
   },
+
+  async delete(id) {
+    const { error } = await getClient().from(TABLE).delete().eq("id", id);
+    if (error) throw new Error(error.message);
+  },
 };

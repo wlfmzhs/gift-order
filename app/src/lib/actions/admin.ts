@@ -97,3 +97,18 @@ export async function updateOrderAction(
     };
   }
 }
+
+export async function deleteOrderAction(
+  id: string
+): Promise<{ ok: boolean; message?: string }> {
+  try {
+    await requireAdmin();
+    await db.delete(id);
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : "삭제 중 오류가 발생했습니다.",
+    };
+  }
+}

@@ -8,8 +8,8 @@ import {
 } from "@/lib/actions/importOrders";
 
 interface Selection {
-  // rowIndex -> chosen orderId ("" = none selected)
-  [rowIndex: number]: string;
+  // key -> chosen orderId ("" = none selected)
+  [key: string]: string;
 }
 
 export default function ImportClient() {
@@ -19,6 +19,7 @@ export default function ImportClient() {
     { orderId: string; orderCode: string; recipientName: string; recipientPhone: string }[]
   >([]);
   const [skippedCancelled, setSkippedCancelled] = useState(0);
+  const [exactDuplicateCount, setExactDuplicateCount] = useState(0);
   const [selection, setSelection] = useState<Selection>({});
   const [error, setError] = useState<string | null>(null);
   const [applyMessage, setApplyMessage] = useState<string | null>(null);
@@ -40,13 +41,14 @@ export default function ImportClient() {
       setRows(result.rows);
       setStillUnmatched(result.stillUnmatchedOrders);
       setSkippedCancelled(result.skippedCancelledCount);
+      setExactDuplicateCount(result.exactDuplicateCount);
 
       const initial: Selection = {};
       result.rows.forEach((r) => {
         if (r.candidates.length === 1 && !r.candidates[0].hasExistingItemName) {
-          initial[r.rowIndex] = r.candidates[0].orderId;
+          initial[r.key] = r.candidates[0].orderId;
         } else {
-          initial[r.rowIndex] = "";
+          initial[r.key] = "";
         }
       });
       setSelection(initial);
@@ -61,9 +63,9 @@ export default function ImportClient() {
   const handleApply = () => {
     if (!rows) return;
     const matches = rows
-      .filter((r) => selection[r.rowIndex])
+      .filter((r) => selection[r.key])
       .map((r) => ({
-        orderId: selection[r.rowIndex],
+        orderId: selection[r.key],
         export_item_name: r.excelItemName,
         export_amount: r.excelAmount,
         export_delivery_message: r.excelDeliveryMessage,
@@ -94,6 +96,11 @@ export default function ImportClient() {
         <p className="mt-1 text-sm text-muted">
           쇼핑몰에서 내려받은 &quot;주문 상품별 상세검색&quot; 엑셀(.xlsx) 파일을 그대로 올려주세요.
           받는분 연락처를 기준으로 이미 접수된 주문서와 자동으로 매칭합니다.
+        </p>
+        <p className="mt-1 text-xs text-muted">
+          완전히 똑같은 행(같은 사람·같은 상품·같은 금액)은 파일 안 중복으로 보고 자동으로
+          하나로 합치고, 같은 사람이 상품을 여러 줄로 나눠 주문한 경우엔 품목명을 합치고
+          금액을 더해서 보여드려요.
         </p>
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <input
@@ -130,9 +137,12 @@ export default function ImportClient() {
               선택한 항목 반영하기
             </button>
           </div>
-          {skippedCancelled > 0 && (
+          {(skippedCancelled > 0 || exactDuplicateCount > 0) && (
             <p className="mt-1 text-xs text-muted">
-              취소/환불로 표시된 {skippedCancelled}건은 자동으로 제외했습니다.
+              {skippedCancelled > 0 &&
+                `취소/환불로 표시된 ${skippedCancelled}건은 자동으로 제외했습니다. `}
+              {exactDuplicateCount > 0 &&
+                `완전히 동일한 행 ${exactDuplicateCount}건은 중복으로 보고 1건으로 합쳤습니다.`}
             </p>
           )}
           <p className="mt-1 text-xs text-muted">
@@ -158,7 +168,7 @@ export default function ImportClient() {
                   const multi = r.candidates.length > 1;
                   return (
                     <tr
-                      key={r.rowIndex}
+                      key={r.key}
                       className={`border-b border-border last:border-0 ${
                         noMatch ? "bg-red-50" : multi ? "bg-yellow-50" : ""
                       }`}
@@ -167,14 +177,12 @@ export default function ImportClient() {
                         {!noMatch && (
                           <input
                             type="checkbox"
-                            checked={!!selection[r.rowIndex]}
+                            checked={!!selection[r.key]}
                             onChange={(e) =>
                               setSelection((prev) => ({
                                 ...prev,
-                                [r.rowIndex]: e.target.checked
-                                  ? prev[r.rowIndex] ||
-                                    r.candidates[0]?.orderId ||
-                                    ""
+                                [r.key]: e.target.checked
+                                  ? prev[r.key] || r.candidates[0]?.orderId || ""
                                   : "",
                               }))
                             }
@@ -185,7 +193,14 @@ export default function ImportClient() {
                         {r.excelRecipientName}
                       </td>
                       <td className="px-2 py-2 whitespace-nowrap">{r.excelPhone}</td>
-                      <td className="px-2 py-2">{r.excelItemName}</td>
+                      <td className="px-2 py-2">
+                        {r.excelItemName}
+                        {r.mergedRowCount > 1 && (
+                          <span className="ml-1 text-xs text-amber-600">
+                            (엑셀 {r.mergedRowCount}개 행 합침)
+                          </span>
+                        )}
+                      </td>
                       <td className="px-2 py-2 whitespace-nowrap">{r.excelAmount}</td>
                       <td className="px-2 py-2">
                         {noMatch && (
@@ -204,11 +219,11 @@ export default function ImportClient() {
                         {multi && (
                           <select
                             className="rounded border border-border bg-background px-2 py-1 text-xs"
-                            value={selection[r.rowIndex] ?? ""}
+                            value={selection[r.key] ?? ""}
                             onChange={(e) =>
                               setSelection((prev) => ({
                                 ...prev,
-                                [r.rowIndex]: e.target.value,
+                                [r.key]: e.target.value,
                               }))
                             }
                           >

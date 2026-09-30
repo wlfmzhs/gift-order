@@ -10,4 +10,5 @@ export interface OrdersDB {
   ): Promise<OrderRecord | null>;
   list(filter?: OrderFilter): Promise<OrderRecord[]>;
   update(id: string, patch: Partial<OrderRecord>): Promise<OrderRecord>;
+  delete(id: string): Promise<void>;
 }
