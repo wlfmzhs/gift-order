@@ -67,11 +67,11 @@ export default function AdminOrderEditForm({ order }: { order: OrderRecord }) {
               ))}
             </select>
           </div>
-          <div>
+          <div className="min-w-0">
             <label className={labelClass}>발송일</label>
             <input
               type="date"
-              className={inputClass}
+              className={`${inputClass} min-w-0`}
               value={values.ship_date ?? ""}
               onChange={(e) => set("ship_date", e.target.value)}
             />
