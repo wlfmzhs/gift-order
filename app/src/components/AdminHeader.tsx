@@ -21,6 +21,9 @@ export default function AdminHeader() {
             <Link href="/admin/export" className="hover:text-brand">
               시트 내보내기
             </Link>
+            <Link href="/admin/import" className="hover:text-brand">
+              엑셀 매칭
+            </Link>
           </nav>
         </div>
         <form action={adminLogoutAction}>
