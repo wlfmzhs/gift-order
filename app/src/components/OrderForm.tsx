@@ -52,6 +52,7 @@ interface ColorOption {
 }
 
 const TOWEL_NONE = "미포함 (타올 구매 안 함)";
+const EMBROIDERY_NONE = "해당없음 (타올 미포함)";
 
 const TOWEL_COLORS: ColorOption[] = [
   { value: TOWEL_NONE, hex: null },
@@ -324,6 +325,7 @@ export default function OrderForm() {
     watch,
     control,
     setValue,
+    getValues,
     setError,
     formState: { errors },
   } = useForm<OrderFormValues>({
@@ -340,6 +342,18 @@ export default function OrderForm() {
 
   const labelDesign = watch("label_design");
   const req = getFieldRequirements(labelDesign);
+  const towelColor = watch("towel_color");
+  const towelIncluded = towelColor !== TOWEL_NONE;
+
+  // 자수는 타올 위에 놓는 것이라, 타올을 "미포함"으로 선택하면
+  // 자수색상 선택 자체가 필요 없어진다 — 자동으로 "해당없음"으로 채워준다.
+  useEffect(() => {
+    if (!towelIncluded) {
+      setValue("embroidery_color", EMBROIDERY_NONE);
+    } else if (getValues("embroidery_color") === EMBROIDERY_NONE) {
+      setValue("embroidery_color", "");
+    }
+  }, [towelIncluded, setValue, getValues]);
 
   // 라벨 디자인을 바꾸면 더 이상 해당하지 않는 항목의 값은 비워서,
   // 화면에는 안 보이지만 실제로는 제출되는 이전 입력값이 남지 않게 한다.
@@ -615,23 +629,35 @@ export default function OrderForm() {
             )}
           </div>
 
-          <div>
-            <label className={labelClass}>자수 색상</label>
-            <Controller
-              control={control}
-              name="embroidery_color"
-              render={({ field }) => (
-                <ColorSwatchField
-                  options={EMBROIDERY_COLORS}
-                  value={field.value}
-                  onChange={field.onChange}
-                />
+          {towelIncluded ? (
+            <div>
+              <label className={labelClass}>
+                자수 색상{" "}
+                <span className="font-normal text-muted">
+                  (타올에 들어가는 자수예요)
+                </span>
+              </label>
+              <Controller
+                control={control}
+                name="embroidery_color"
+                render={({ field }) => (
+                  <ColorSwatchField
+                    options={EMBROIDERY_COLORS}
+                    value={field.value}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
+              {errors.embroidery_color && (
+                <p className={errorClass}>{errors.embroidery_color.message}</p>
               )}
-            />
-            {errors.embroidery_color && (
-              <p className={errorClass}>{errors.embroidery_color.message}</p>
-            )}
-          </div>
+            </div>
+          ) : (
+            <p className="text-xs text-muted">
+              자수는 타올에 들어가는 거라, 타올을 포함하지 않으시면 자수 색상도
+              선택하실 필요 없어요.
+            </p>
+          )}
         </div>
 
         {/* 배송 정보 */}
