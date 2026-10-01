@@ -88,7 +88,12 @@ export async function updateOrderAction(
 ): Promise<{ ok: boolean; message?: string }> {
   try {
     await requireAdmin();
-    await db.update(id, patch);
+    // 송장번호를 입력하면 발송완료로 자동 전환 (빈 값으로 지우는 경우는 제외)
+    const finalPatch: OrderPatch =
+      typeof patch.tracking_no === "string" && patch.tracking_no.trim() !== ""
+        ? { ...patch, status: "발송완료" }
+        : patch;
+    await db.update(id, finalPatch);
     return { ok: true };
   } catch (err) {
     return {

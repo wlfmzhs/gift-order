@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { getFieldRequirements } from "./orderRules";
-import { checkTowelForEventDate } from "./towelRules";
+import { EVENT_MAX_DATE, EVENT_MIN_DATE, checkTowelForEventDate } from "./towelRules";
 
 const PHONE_REGEX = /^01[016789]-\d{3,4}-\d{4}$/;
 
@@ -33,6 +33,14 @@ export const orderFormSchema = z
   })
   .superRefine((data, ctx) => {
     const req = getFieldRequirements(data.label_design);
+
+    if (data.event_date && (data.event_date < EVENT_MIN_DATE || data.event_date > EVENT_MAX_DATE)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["event_date"],
+        message: "행사일은 2026년 10월부터 2027년 3월까지만 주문하실 수 있어요.",
+      });
+    }
 
     const towelCheck = checkTowelForEventDate(data.towel_color, data.event_date);
     if (!towelCheck.ok) {

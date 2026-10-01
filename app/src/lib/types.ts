@@ -1,6 +1,6 @@
 export type LabelDesign = "A" | "B" | "C" | "D" | "E" | "F";
 
-export type OrderStatus = "접수완료" | "확인중" | "발송준비" | "발송완료";
+export type OrderStatus = "접수완료" | "발송완료";
 
 export interface OrderRecord {
   id: string;

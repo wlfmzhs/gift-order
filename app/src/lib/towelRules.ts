@@ -5,6 +5,9 @@
 export const TOWEL_MIN_EVENT_DATE = "2026-10-24";
 export const TOWEL_ALL_COLORS_FROM = "2026-10-31";
 
+export const EVENT_MIN_DATE = "2026-10-01";
+export const EVENT_MAX_DATE = "2027-03-31";
+
 export const TOWEL_NONE = "미포함 (타올 구매 안 함)";
 export const TOWEL_WHITE = "화이트";
 

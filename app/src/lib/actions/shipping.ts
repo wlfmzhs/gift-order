@@ -27,11 +27,10 @@ export async function updateShippingAction(
   const order = await db.getByCode(orderCode);
   if (!order) return { ok: false, message: "주문을 찾을 수 없습니다." };
 
-  if (order.status === "발송준비" || order.status === "발송완료") {
+  if (order.status === "발송완료") {
     return {
       ok: false,
-      message:
-        "이미 발송 준비 중이거나 발송된 주문은 직접 변경할 수 없어요. 카카오톡 상담으로 문의해주세요.",
+      message: "이미 발송된 주문은 직접 변경할 수 없어요. 카카오톡 상담으로 문의해주세요.",
     };
   }
 

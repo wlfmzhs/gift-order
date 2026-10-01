@@ -8,7 +8,7 @@ import { Controller, useForm } from "react-hook-form";
 import { createOrderAction } from "@/lib/actions/orders";
 import { getFieldRequirements } from "@/lib/orderRules";
 import { orderFormSchema, type OrderFormValues } from "@/lib/orderSchema";
-import { TOWEL_NONE, checkTowelForEventDate } from "@/lib/towelRules";
+import { EVENT_MAX_DATE, EVENT_MIN_DATE, TOWEL_NONE, checkTowelForEventDate } from "@/lib/towelRules";
 
 declare global {
   interface Window {
@@ -611,7 +611,13 @@ export default function OrderForm() {
 
           <div>
             <label className={labelClass}>행사일</label>
-            <input type="date" className={inputClass} {...register("event_date")} />
+            <input
+              type="date"
+              min={EVENT_MIN_DATE}
+              max={EVENT_MAX_DATE}
+              className={inputClass}
+              {...register("event_date")}
+            />
             {errors.event_date && (
               <p className={errorClass}>{errors.event_date.message}</p>
             )}
