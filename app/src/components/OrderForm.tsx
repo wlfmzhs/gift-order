@@ -8,6 +8,7 @@ import { Controller, useForm } from "react-hook-form";
 import { createOrderAction } from "@/lib/actions/orders";
 import { getFieldRequirements } from "@/lib/orderRules";
 import { orderFormSchema, type OrderFormValues } from "@/lib/orderSchema";
+import { TOWEL_NONE, checkTowelForEventDate } from "@/lib/towelRules";
 
 declare global {
   interface Window {
@@ -51,7 +52,6 @@ interface ColorOption {
   hex: string | null;
 }
 
-const TOWEL_NONE = "미포함 (타올 구매 안 함)";
 const EMBROIDERY_NONE = "해당없음 (타올 미포함)";
 const DRAFT_KEY = "everycare-order-draft-v1";
 
@@ -109,15 +109,18 @@ function ColorSwatchField({
   options,
   value,
   onChange,
+  isDisabled,
 }: {
   options: ColorOption[];
   value: string;
   onChange: (value: string) => void;
+  isDisabled?: (value: string) => boolean;
 }) {
   return (
     <div className="mt-2 flex flex-wrap gap-2">
       {options.map((opt) => {
         const selected = value === opt.value;
+        const disabled = isDisabled?.(opt.value) ?? false;
         return (
           <button
             key={opt.value}
@@ -125,7 +128,9 @@ function ColorSwatchField({
             onClick={() => onChange(opt.value)}
             aria-pressed={selected}
             className={`flex items-center gap-2 rounded-full border-2 px-3 py-2 text-sm transition-all ${
-              selected
+              disabled
+                ? "cursor-not-allowed border-border text-muted opacity-50"
+                : selected
                 ? "border-brand bg-brand/10 font-semibold text-brand-dark shadow-sm"
                 : "border-border text-foreground hover:border-brand/50"
             }`}
@@ -317,6 +322,7 @@ export default function OrderForm() {
   const [submitting, setSubmitting] = useState(false);
   const [showPostcode, setShowPostcode] = useState(false);
   const [previewImg, setPreviewImg] = useState<string | null>(null);
+  const [towelNotice, setTowelNotice] = useState<string | null>(null);
   const [mode, setMode] = useState<"edit" | "review">("edit");
   const [reviewData, setReviewData] = useState<OrderFormValues | null>(null);
   const [draftRestored, setDraftRestored] = useState(false);
@@ -398,6 +404,25 @@ export default function OrderForm() {
   const req = getFieldRequirements(labelDesign);
   const towelColor = watch("towel_color");
   const towelIncluded = towelColor !== TOWEL_NONE;
+  const eventDate = watch("event_date");
+
+  // 행사일을 바꿨는데 이미 고른 타올이 그 날짜엔 불가능하면 선택을 풀고 안내한다.
+  useEffect(() => {
+    const check = checkTowelForEventDate(towelColor, eventDate);
+    if (!check.ok) {
+      setValue("towel_color", "");
+      setTowelNotice(check.message);
+    }
+  }, [towelColor, eventDate, setValue]);
+
+  const handleTowelSelect = (value: string, onChange: (v: string) => void) => {
+    const check = checkTowelForEventDate(value, getValues("event_date"));
+    if (!check.ok) {
+      setTowelNotice(check.message);
+      return;
+    }
+    onChange(value);
+  };
 
   // 자수는 타올 위에 놓는 것이라, 타올을 "미포함"으로 선택하면
   // 자수색상 선택 자체가 필요 없어진다 — 자동으로 "해당없음"으로 채워준다.
@@ -693,7 +718,10 @@ export default function OrderForm() {
                 <ColorSwatchField
                   options={TOWEL_COLORS}
                   value={field.value}
-                  onChange={field.onChange}
+                  onChange={(v) => handleTowelSelect(v, field.onChange)}
+                  isDisabled={(v) =>
+                    !checkTowelForEventDate(v, eventDate).ok
+                  }
                 />
               )}
             />
@@ -863,6 +891,28 @@ export default function OrderForm() {
               </button>
             </div>
             <div ref={embedPostcode} style={{ height: 450 }} />
+          </div>
+        </div>
+      )}
+
+      {towelNotice && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+          onClick={() => setTowelNotice(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-white p-5 text-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="font-semibold">타올 선택 안내</p>
+            <p className="mt-2 leading-relaxed">{towelNotice}</p>
+            <button
+              type="button"
+              onClick={() => setTowelNotice(null)}
+              className="mt-4 w-full rounded-lg bg-brand py-2.5 font-medium text-white"
+            >
+              확인
+            </button>
           </div>
         </div>
       )}

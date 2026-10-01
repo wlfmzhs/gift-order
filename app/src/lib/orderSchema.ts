@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getFieldRequirements } from "./orderRules";
+import { checkTowelForEventDate } from "./towelRules";
 
 const PHONE_REGEX = /^01[016789]-\d{3,4}-\d{4}$/;
 
@@ -32,6 +33,15 @@ export const orderFormSchema = z
   })
   .superRefine((data, ctx) => {
     const req = getFieldRequirements(data.label_design);
+
+    const towelCheck = checkTowelForEventDate(data.towel_color, data.event_date);
+    if (!towelCheck.ok) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["towel_color"],
+        message: towelCheck.message,
+      });
+    }
 
     if (req.isWedding) {
       if (!data.groom_name_kr?.trim()) {
