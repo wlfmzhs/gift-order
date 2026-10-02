@@ -96,7 +96,7 @@ export default function ExportGrid({ orders }: { orders: OrderRecord[] }) {
         r.embroidery_color,
       ].join("\t")
     );
-    const tsv = [header, ...lines].join("\n");
+    const tsv = lines.join("\n");
     try {
       await navigator.clipboard.writeText(tsv);
       setCopied(true);
