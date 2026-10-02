@@ -5,7 +5,7 @@ import { useState } from "react";
 import { updateOrderAction, type OrderPatch } from "@/lib/actions/admin";
 import type { OrderRecord, OrderStatus } from "@/lib/types";
 
-const STATUS_OPTIONS: OrderStatus[] = ["접수완료", "확인중", "발송준비", "발송완료"];
+const STATUS_OPTIONS: OrderStatus[] = ["접수완료", "발송완료"];
 
 const inputClass =
   "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-brand";
@@ -41,6 +41,9 @@ export default function AdminOrderEditForm({ order }: { order: OrderRecord }) {
     setMessage(null);
     try {
       const result = await updateOrderAction(order.id, values);
+      if (result.ok && (values.tracking_no ?? "").trim() !== "") {
+        setValues((v) => ({ ...v, status: "발송완료" }));
+      }
       setMessage(result.ok ? "저장되었습니다." : result.message ?? "저장 실패");
       router.refresh();
     } finally {
@@ -92,6 +95,9 @@ export default function AdminOrderEditForm({ order }: { order: OrderRecord }) {
               onChange={(e) => set("tracking_no", e.target.value)}
               placeholder="발송 처리 시 입력"
             />
+            <p className="mt-1 text-[11px] text-muted">
+              입력 후 저장하면 상태가 자동으로 발송완료로 바뀌어요.
+            </p>
           </div>
         </div>
       </div>

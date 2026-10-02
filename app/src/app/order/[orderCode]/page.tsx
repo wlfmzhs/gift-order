@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import SiteHeader from "@/components/SiteHeader";
+import CopyButton from "@/components/CopyButton";
 import KakaoChatButton from "@/components/KakaoChatButton";
 import ShippingEditor from "@/components/ShippingEditor";
 import StatusTimeline from "@/components/StatusTimeline";
@@ -26,8 +27,7 @@ export default async function OrderDetailPage({
   if (!order) notFound();
 
   const req = getFieldRequirements(order.label_design);
-  const canEditShipping =
-    order.status === "접수완료" || order.status === "확인중";
+  const canEditShipping = order.status === "접수완료";
   const trackingUrl =
     order.tracking_no && order.carrier === "롯데택배"
       ? `https://www.lotteglogis.com/home/reservation/tracking/linkView?InvNo=${order.tracking_no}`
@@ -49,7 +49,17 @@ export default async function OrderDetailPage({
             <div className="mt-4 rounded-2xl border border-border bg-surface p-5">
               <h2 className="font-semibold">배송 정보</h2>
               <Row label="택배사" value={order.carrier} />
-              <Row label="송장번호" value={order.tracking_no} />
+              {order.tracking_no && (
+                <div className="flex items-center justify-between gap-4 py-2 text-sm">
+                  <span className="text-muted">송장번호</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-right font-medium">
+                      {order.tracking_no}
+                    </span>
+                    <CopyButton value={order.tracking_no} />
+                  </div>
+                </div>
+              )}
               {trackingUrl && (
                 <a
                   href={trackingUrl}

@@ -1,6 +1,6 @@
 import type { OrderStatus } from "@/lib/types";
 
-const STEPS: OrderStatus[] = ["접수완료", "확인중", "발송준비", "발송완료"];
+const STEPS: OrderStatus[] = ["접수완료", "발송완료"];
 
 export default function StatusTimeline({ status }: { status: OrderStatus }) {
   const currentIndex = STEPS.indexOf(status);

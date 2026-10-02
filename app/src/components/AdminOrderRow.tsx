@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 import { deleteOrderAction, updateOrderAction } from "@/lib/actions/admin";
 import type { OrderRecord, OrderStatus } from "@/lib/types";
 
-const STATUS_OPTIONS: OrderStatus[] = ["접수완료", "확인중", "발송준비", "발송완료"];
+const STATUS_OPTIONS: OrderStatus[] = ["접수완료", "발송완료"];
 
 export default function AdminOrderRow({ order }: { order: OrderRecord }) {
   const router = useRouter();
@@ -18,12 +18,14 @@ export default function AdminOrderRow({ order }: { order: OrderRecord }) {
 
   const handleSave = () => {
     setMessage(null);
+    const nextStatus = trackingNo.trim() !== "" ? "발송완료" : status;
     startTransition(async () => {
       const result = await updateOrderAction(order.id, {
-        status,
+        status: nextStatus,
         tracking_no: trackingNo,
       });
       if (result.ok) {
+        setStatus(nextStatus);
         setDirty(false);
         setMessage("저장됨");
         router.refresh();

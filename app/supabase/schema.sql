@@ -33,7 +33,7 @@ create table if not exists orders (
   recipient_address2 text,
 
   status text not null default '접수완료'
-    check (status in ('접수완료','확인중','발송준비','발송완료')),
+    check (status in ('접수완료','발송완료')),
   carrier text not null default '롯데택배',
   tracking_no text,
   ship_date date,

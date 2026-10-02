@@ -3,7 +3,7 @@ import ExportGrid from "@/components/ExportGrid";
 import { db } from "@/lib/db";
 import type { OrderStatus } from "@/lib/types";
 
-const STATUS_OPTIONS: OrderStatus[] = ["접수완료", "확인중", "발송준비", "발송완료"];
+const STATUS_OPTIONS: OrderStatus[] = ["접수완료", "발송완료"];
 
 export default async function AdminExportPage({
   searchParams,
