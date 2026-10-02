@@ -615,7 +615,7 @@ export default function OrderForm() {
               type="date"
               min={EVENT_MIN_DATE}
               max={EVENT_MAX_DATE}
-              className={inputClass}
+              className={`${inputClass} block min-w-0 max-w-full appearance-none`}
               {...register("event_date")}
             />
             {errors.event_date && (
@@ -628,7 +628,7 @@ export default function OrderForm() {
               <label className={labelClass}>아기 첫 생일(돌) 날짜</label>
               <input
                 type="date"
-                className={inputClass}
+                className={`${inputClass} block min-w-0 max-w-full appearance-none`}
                 {...register("birthday_date")}
               />
               {errors.birthday_date && (
