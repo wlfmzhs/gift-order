@@ -349,6 +349,17 @@ export default function OrderForm() {
     },
   });
 
+  const upperRegister = (name: "baby_name_en" | "groom_name_en" | "bride_name_en") => {
+    const r = register(name);
+    return {
+      ...r,
+      onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+        e.target.value = e.target.value.toUpperCase();
+        return r.onChange(e);
+      },
+    };
+  };
+
   // 페이지에 처음 들어왔을 때 브라우저에 저장된 임시 작성분이 있으면 불러온다.
   useEffect(() => {
     try {
@@ -650,7 +661,7 @@ export default function OrderForm() {
                 {req.showBabyNameEn && (
                   <div>
                     <label className={labelClass}>아기 이름 (영문)</label>
-                    <input className={inputClass} {...register("baby_name_en")} />
+                    <input className={inputClass} {...upperRegister("baby_name_en")} />
                     {errors.baby_name_en && (
                       <p className={errorClass}>{errors.baby_name_en.message}</p>
                     )}
@@ -690,7 +701,7 @@ export default function OrderForm() {
               </div>
               <div>
                 <label className={labelClass}>신랑 성함 (영문)</label>
-                <input className={inputClass} {...register("groom_name_en")} />
+                <input className={inputClass} {...upperRegister("groom_name_en")} />
               </div>
               <div>
                 <label className={labelClass}>신부 성함 (한글)</label>
@@ -701,7 +712,7 @@ export default function OrderForm() {
               </div>
               <div>
                 <label className={labelClass}>신부 성함 (영문)</label>
-                <input className={inputClass} {...register("bride_name_en")} />
+                <input className={inputClass} {...upperRegister("bride_name_en")} />
               </div>
             </div>
           )}
