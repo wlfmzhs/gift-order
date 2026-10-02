@@ -80,7 +80,6 @@ export default function ExportGrid({ orders }: { orders: OrderRecord[] }) {
   };
 
   const handleCopyAll = async () => {
-    const header = EXPORT_COLUMNS.join("\t");
     const lines = rows.map((r) =>
       [
         r.export_recipient_display,
