@@ -34,7 +34,7 @@ function toRow(o: OrderRecord): Row {
     export_etc: o.export_etc,
     label_design: o.label_design,
     towel_color: o.towel_color ?? "",
-    embroidery_color: o.embroidery_color ?? "",
+    embroidery_color: o.embroidery_color?.startsWith("해당없음") ? "" : (o.embroidery_color ?? ""),
   };
 }
 
