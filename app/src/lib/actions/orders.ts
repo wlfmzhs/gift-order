@@ -1,5 +1,6 @@
 "use server";
 
+import { toTitleCase } from "@/lib/titleCase";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { orderFormSchema, type OrderFormValues } from "@/lib/orderSchema";
@@ -30,13 +31,13 @@ export async function createOrderAction(
     event_date: v.event_date,
     birthday_date: v.birthday_date || null,
     baby_name_kr: v.baby_name_kr || null,
-    baby_name_en: v.baby_name_en?.toUpperCase() || null,
+    baby_name_en: (v.baby_name_en && toTitleCase(v.baby_name_en.trim().replace(/s+/g, " "))) || null,
     father_name: v.father_name || null,
     mother_name: v.mother_name || null,
     groom_name_kr: v.groom_name_kr || null,
-    groom_name_en: v.groom_name_en?.toUpperCase() || null,
+    groom_name_en: (v.groom_name_en && toTitleCase(v.groom_name_en.trim().replace(/s+/g, " "))) || null,
     bride_name_kr: v.bride_name_kr || null,
-    bride_name_en: v.bride_name_en?.toUpperCase() || null,
+    bride_name_en: (v.bride_name_en && toTitleCase(v.bride_name_en.trim().replace(/s+/g, " "))) || null,
     towel_color: v.towel_color,
     embroidery_color: v.embroidery_color,
     recipient_name: v.recipient_name,

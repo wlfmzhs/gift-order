@@ -1,5 +1,6 @@
 "use client";
 
+import { toTitleCase } from "@/lib/titleCase";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Image from "next/image";
 import Script from "next/script";
@@ -354,7 +355,7 @@ export default function OrderForm() {
     return {
       ...r,
       onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
-        e.target.value = e.target.value.toUpperCase();
+        e.target.value = toTitleCase(e.target.value);
         return r.onChange(e);
       },
     };
@@ -661,7 +662,7 @@ export default function OrderForm() {
                 {req.showBabyNameEn && (
                   <div>
                     <label className={labelClass}>아기 이름 (영문)</label>
-                    <input className={`${inputClass} uppercase`} autoCapitalize="characters" {...upperRegister("baby_name_en")} />
+                    <input className={inputClass} autoCapitalize="words" {...upperRegister("baby_name_en")} />
                     {errors.baby_name_en && (
                       <p className={errorClass}>{errors.baby_name_en.message}</p>
                     )}
@@ -701,7 +702,7 @@ export default function OrderForm() {
               </div>
               <div>
                 <label className={labelClass}>신랑 성함 (영문)</label>
-                <input className={`${inputClass} uppercase`} autoCapitalize="characters" {...upperRegister("groom_name_en")} />
+                <input className={inputClass} autoCapitalize="words" {...upperRegister("groom_name_en")} />
               </div>
               <div>
                 <label className={labelClass}>신부 성함 (한글)</label>
@@ -712,7 +713,7 @@ export default function OrderForm() {
               </div>
               <div>
                 <label className={labelClass}>신부 성함 (영문)</label>
-                <input className={`${inputClass} uppercase`} autoCapitalize="characters" {...upperRegister("bride_name_en")} />
+                <input className={inputClass} autoCapitalize="words" {...upperRegister("bride_name_en")} />
               </div>
             </div>
           )}
