@@ -321,6 +321,7 @@ function ReviewStep({
 export default function OrderForm() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [showPostcode, setShowPostcode] = useState(false);
   const [previewImg, setPreviewImg] = useState<string | null>(null);
   const [towelNotice, setTowelNotice] = useState<string | null>(null);
@@ -503,30 +504,57 @@ export default function OrderForm() {
   // 2단계: 확인 화면에서 "이대로 제출하기"를 눌러야 실제로 서버에 저장된다.
   const handleConfirm = async () => {
     if (!reviewData) return;
+    // 버튼이 비활성화되기 전에 연달아 눌러도 주문이 두 번 저장되지 않도록 막는다.
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setSubmitError(null);
     setSubmitting(true);
-    try {
-      // 제출이 성공하면 완료 페이지로 이동해버려 이 아래 코드가 실행되지
-      // 않으므로, 임시 저장분은 요청을 보내기 직전에 미리 지운다.
+
+    const restoreDraft = () => {
       try {
-        localStorage.removeItem(DRAFT_KEY);
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(reviewData));
       } catch {
         // 무시
       }
-      const result = await createOrderAction(reviewData);
-      if (result && !result.ok) {
-        setSubmitError(result.message);
-        if (result.fieldErrors) {
-          for (const [field, message] of Object.entries(result.fieldErrors)) {
-            setError(field as keyof OrderFormValues, { message });
-          }
+    };
+
+    // 제출이 성공하면 완료 페이지로 이동해버려 이 아래 코드가 실행되지
+    // 않으므로, 임시 저장분은 요청을 보내기 직전에 미리 지운다.
+    // (실패하면 restoreDraft()로 되살린다.)
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+    } catch {
+      // 무시
+    }
+
+    let result: Awaited<ReturnType<typeof createOrderAction>> | undefined;
+    try {
+      result = await createOrderAction(reviewData);
+    } catch {
+      // 접속이 몰리거나 네트워크가 끊겨 요청 자체가 실패한 경우
+      restoreDraft();
+      setSubmitError(
+        "일시적으로 접속이 원활하지 않아 제출하지 못했어요. 입력하신 내용은 그대로 있으니 잠시 후 다시 시도해주세요."
+      );
+      submittingRef.current = false;
+      setSubmitting(false);
+      return;
+    }
+
+    if (result && !result.ok) {
+      restoreDraft();
+      setSubmitError(result.message);
+      if (result.fieldErrors) {
+        for (const [field, message] of Object.entries(result.fieldErrors)) {
+          setError(field as keyof OrderFormValues, { message });
         }
-        setMode("edit");
-        window.scrollTo({ top: 0, behavior: "smooth" });
       }
-    } finally {
+      setMode("edit");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      submittingRef.current = false;
       setSubmitting(false);
     }
+    // 성공 시에는 완료 페이지로 이동하는 동안 버튼을 계속 비활성화해 둔다.
   };
 
   return (

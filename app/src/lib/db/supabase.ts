@@ -1,10 +1,14 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { generateOrderCode } from "../codes";
 import { computeExportDefaults } from "../exportDefaults";
 import type { OrderFilter, OrderRecord } from "../types";
 import type { OrdersDB } from "./adapter";
 
+// 요청마다 클라이언트를 새로 만들지 않고 서버 인스턴스 안에서 재사용한다.
+let client: SupabaseClient | null = null;
+
 function getClient() {
+  if (client) return client;
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
@@ -12,19 +16,26 @@ function getClient() {
       "SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY 환경변수가 설정되어 있지 않습니다."
     );
   }
-  return createClient(url, key, {
+  client = createClient(url, key, {
     auth: { persistSession: false },
   });
+  return client;
 }
 
 const TABLE = "orders";
 
+// Supabase(PostgREST)는 한 번의 select로 최대 1000행까지만 돌려주므로
+// 그보다 많은 주문도 빠짐없이 가져오도록 나눠서 조회한다.
+const PAGE_SIZE = 1000;
+
+// 주문번호는 랜덤 생성이라 극히 드물게 기존 번호와 겹칠 수 있다 → 다시 생성해 재시도.
+const MAX_CODE_RETRIES = 5;
+
 export const supabaseOrdersDB: OrdersDB = {
   async create(input) {
     const defaults = computeExportDefaults(input);
-    const record = {
+    const base = {
       ...input,
-      order_code: generateOrderCode(),
       status: "접수완료" as const,
       carrier: "롯데택배",
       tracking_no: null,
@@ -37,13 +48,19 @@ export const supabaseOrdersDB: OrdersDB = {
       export_etc: defaults.export_etc,
     };
 
-    const { data, error } = await getClient()
-      .from(TABLE)
-      .insert(record)
-      .select()
-      .single();
-    if (error) throw new Error(error.message);
-    return data as OrderRecord;
+    for (let attempt = 0; ; attempt++) {
+      const { data, error } = await getClient()
+        .from(TABLE)
+        .insert({ ...base, order_code: generateOrderCode() })
+        .select()
+        .single();
+      if (!error) return data as OrderRecord;
+      const isCodeCollision =
+        error.code === "23505" && error.message.includes("order_code");
+      if (!isCodeCollision || attempt >= MAX_CODE_RETRIES) {
+        throw new Error(error.message);
+      }
+    }
   },
 
   async getByCode(orderCode) {
@@ -80,15 +97,21 @@ export const supabaseOrdersDB: OrdersDB = {
   },
 
   async list(filter?: OrderFilter) {
-    let query = getClient().from(TABLE).select("*");
-    if (filter?.status) query = query.eq("status", filter.status);
-    if (filter?.labelDesign) query = query.eq("label_design", filter.labelDesign);
+    let rows: OrderRecord[] = [];
+    for (let from = 0; ; from += PAGE_SIZE) {
+      let query = getClient().from(TABLE).select("*");
+      if (filter?.status) query = query.eq("status", filter.status);
+      if (filter?.labelDesign) query = query.eq("label_design", filter.labelDesign);
 
-    const { data, error } = await query.order("created_at", {
-      ascending: false,
-    });
-    if (error) throw new Error(error.message);
-    let rows = (data as OrderRecord[]) ?? [];
+      const { data, error } = await query
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true }) // 같은 시각 주문이 페이지 경계에서 누락/중복되지 않도록
+        .range(from, from + PAGE_SIZE - 1);
+      if (error) throw new Error(error.message);
+      const page = (data as OrderRecord[]) ?? [];
+      rows = rows.concat(page);
+      if (page.length < PAGE_SIZE) break;
+    }
 
     if (filter?.search) {
       const q = filter.search.toLowerCase();

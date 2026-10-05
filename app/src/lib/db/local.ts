@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { mkdir, readFile, writeFile } from "fs/promises";
+import { mkdir, readFile, rename, writeFile } from "fs/promises";
 import path from "path";
 import { generateOrderCode } from "../codes";
 import { computeExportDefaults } from "../exportDefaults";
@@ -21,36 +21,50 @@ async function readAll(): Promise<OrderRecord[]> {
 
 async function writeAll(orders: OrderRecord[]): Promise<void> {
   await mkdir(DATA_DIR, { recursive: true });
-  await writeFile(DATA_FILE, JSON.stringify(orders, null, 2), "utf-8");
+  // 임시 파일에 다 쓴 뒤 교체해서, 쓰는 도중에 읽으면 깨진 JSON을 보는 일이 없게 한다.
+  const tmp = `${DATA_FILE}.${randomUUID()}.tmp`;
+  await writeFile(tmp, JSON.stringify(orders, null, 2), "utf-8");
+  await rename(tmp, DATA_FILE);
+}
+
+// 읽기→수정→쓰기 사이에 다른 요청이 끼어들면 먼저 저장된 주문이 사라지므로
+// 쓰기 작업은 한 번에 하나씩만 실행한다.
+let writeQueue: Promise<unknown> = Promise.resolve();
+function withWriteLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = writeQueue.then(fn, fn);
+  writeQueue = run.catch(() => {});
+  return run;
 }
 
 export const localOrdersDB: OrdersDB = {
-  async create(input) {
-    const orders = await readAll();
-    const now = new Date().toISOString();
-    const defaults = computeExportDefaults(input);
+  create(input) {
+    return withWriteLock(async () => {
+      const orders = await readAll();
+      const now = new Date().toISOString();
+      const defaults = computeExportDefaults(input);
 
-    const record: OrderRecord = {
-      ...input,
-      id: randomUUID(),
-      order_code: generateOrderCode(),
-      created_at: now,
-      updated_at: now,
-      status: "접수완료",
-      carrier: "롯데택배",
-      tracking_no: null,
-      ship_date: defaults.ship_date,
-      export_recipient_display: defaults.export_recipient_display,
-      export_item_name: "",
-      export_amount: "",
-      export_delivery_message: "",
-      export_birthday: defaults.export_birthday,
-      export_etc: defaults.export_etc,
-    };
+      const record: OrderRecord = {
+        ...input,
+        id: randomUUID(),
+        order_code: generateOrderCode(),
+        created_at: now,
+        updated_at: now,
+        status: "접수완료",
+        carrier: "롯데택배",
+        tracking_no: null,
+        ship_date: defaults.ship_date,
+        export_recipient_display: defaults.export_recipient_display,
+        export_item_name: "",
+        export_amount: "",
+        export_delivery_message: "",
+        export_birthday: defaults.export_birthday,
+        export_etc: defaults.export_etc,
+      };
 
-    orders.push(record);
-    await writeAll(orders);
-    return record;
+      orders.push(record);
+      await writeAll(orders);
+      return record;
+    });
   },
 
   async getByCode(orderCode) {
@@ -94,21 +108,25 @@ export const localOrdersDB: OrdersDB = {
     return orders.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   },
 
-  async update(id, patch) {
-    const orders = await readAll();
-    const idx = orders.findIndex((o) => o.id === id);
-    if (idx === -1) throw new Error("주문을 찾을 수 없습니다.");
-    orders[idx] = {
-      ...orders[idx],
-      ...patch,
-      updated_at: new Date().toISOString(),
-    };
-    await writeAll(orders);
-    return orders[idx];
+  update(id, patch) {
+    return withWriteLock(async () => {
+      const orders = await readAll();
+      const idx = orders.findIndex((o) => o.id === id);
+      if (idx === -1) throw new Error("주문을 찾을 수 없습니다.");
+      orders[idx] = {
+        ...orders[idx],
+        ...patch,
+        updated_at: new Date().toISOString(),
+      };
+      await writeAll(orders);
+      return orders[idx];
+    });
   },
 
-  async delete(id) {
-    const orders = await readAll();
-    await writeAll(orders.filter((o) => o.id !== id));
+  delete(id) {
+    return withWriteLock(async () => {
+      const orders = await readAll();
+      await writeAll(orders.filter((o) => o.id !== id));
+    });
   },
 };
