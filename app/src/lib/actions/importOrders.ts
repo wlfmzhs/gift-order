@@ -3,6 +3,7 @@
 import * as XLSX from "xlsx";
 import { requireAdmin } from "@/lib/adminSession";
 import { db } from "@/lib/db";
+import { formatItemName } from "@/lib/itemName";
 import type { OrderRecord } from "@/lib/types";
 
 const HEADER_ALIASES: Record<string, string[]> = {
@@ -10,6 +11,7 @@ const HEADER_ALIASES: Record<string, string[]> = {
   phone: ["주문자 휴대폰 번호", "주문자 휴대폰번호", "휴대폰 번호", "연락처"],
   item_name: ["상품 옵션 정보", "상품명", "옵션정보"],
   amount: ["결제 금액", "결제금액", "금액"],
+  quantity: ["수량", "주문수량", "구매수량"],
   status: ["상품별 주문 상태", "주문상태"],
   delivery_message: ["배송 메모", "배송메세지", "배송메모"],
 };
@@ -32,6 +34,7 @@ interface ParsedLine {
   excelAmount: string;
   excelDeliveryMessage: string;
   excelStatus: string;
+  warnings: string[];
 }
 
 export interface ImportCandidate {
@@ -52,6 +55,7 @@ export interface ImportRow {
   excelAmount: string;
   excelDeliveryMessage: string;
   excelStatus: string;
+  warnings: string[];
   candidates: ImportCandidate[];
 }
 
@@ -125,6 +129,7 @@ export async function previewHomepageImportAction(
     phone: findHeaderIndex(headerRow, HEADER_ALIASES.phone),
     item_name: findHeaderIndex(headerRow, HEADER_ALIASES.item_name),
     amount: findHeaderIndex(headerRow, HEADER_ALIASES.amount),
+    quantity: findHeaderIndex(headerRow, HEADER_ALIASES.quantity),
     status: findHeaderIndex(headerRow, HEADER_ALIASES.status),
     delivery_message: findHeaderIndex(headerRow, HEADER_ALIASES.delivery_message),
   };
@@ -151,12 +156,19 @@ export async function previewHomepageImportAction(
       continue;
     }
 
+    const rawItemName =
+      col.item_name !== -1 ? String(line[col.item_name] ?? "").trim() : "";
+    const item =
+      rawItemName && col.quantity !== -1
+        ? formatItemName(rawItemName, String(line[col.quantity] ?? ""))
+        : { name: rawItemName, warnings: [] };
+
     parsedLines.push({
       rowIndex: i,
       excelRecipientName: String(line[col.recipient_name] ?? "").trim(),
       excelPhone: String(line[col.phone] ?? "").trim(),
-      excelItemName:
-        col.item_name !== -1 ? String(line[col.item_name] ?? "").trim() : "",
+      excelItemName: item.name,
+      warnings: item.warnings,
       excelAmount: col.amount !== -1 ? String(line[col.amount] ?? "").trim() : "",
       excelDeliveryMessage:
         col.delivery_message !== -1
@@ -223,6 +235,7 @@ export async function previewHomepageImportAction(
         excelAmount: line.excelAmount,
         excelDeliveryMessage: line.excelDeliveryMessage,
         excelStatus: line.excelStatus,
+        warnings: line.warnings,
         candidates: matches.map(toCandidate),
       });
     }
@@ -253,6 +266,7 @@ export async function previewHomepageImportAction(
       excelAmount: String(amountSum),
       excelDeliveryMessage: deliveryMessages.join(" / "),
       excelStatus: lines[0].excelStatus,
+      warnings: lines.flatMap((l) => l.warnings),
       candidates: [toCandidate(order)],
     });
   }

@@ -55,6 +55,8 @@ export default function ImportClient() {
     });
   };
 
+  const warningCount = rows?.filter((r) => r.warnings.length > 0).length ?? 0;
+
   const selectedCount = useMemo(
     () => Object.values(selection).filter((v) => v !== "").length,
     [selection]
@@ -145,6 +147,12 @@ export default function ImportClient() {
                 `완전히 동일한 행 ${exactDuplicateCount}건은 중복으로 보고 1건으로 합쳤습니다.`}
             </p>
           )}
+          {warningCount > 0 && (
+            <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600">
+              수량을 확인해야 하는 주문이 {warningCount}건 있어요. 빨간색으로 표시된 항목을
+              확인해주세요. (가격 구간을 벗어났거나, 타올이 20장 이상·10장 단위가 아닌 경우)
+            </p>
+          )}
           <p className="mt-1 text-xs text-muted">
             이미 품목명이 입력되어 있던 주문은 실수로 덮어쓰지 않도록 기본적으로 선택 해제되어
             있어요. 필요하면 체크해서 최신 값으로 갱신하세요.
@@ -194,12 +202,19 @@ export default function ImportClient() {
                       </td>
                       <td className="px-2 py-2 whitespace-nowrap">{r.excelPhone}</td>
                       <td className="px-2 py-2">
-                        {r.excelItemName}
+                        <span className={r.warnings.length > 0 ? "font-semibold text-red-600" : ""}>
+                          {r.excelItemName}
+                        </span>
                         {r.mergedRowCount > 1 && (
                           <span className="ml-1 text-xs text-amber-600">
                             (엑셀 {r.mergedRowCount}개 행 합침)
                           </span>
                         )}
+                        {r.warnings.map((w) => (
+                          <p key={w} className="mt-0.5 text-xs text-red-600">
+                            ⚠ {w}
+                          </p>
+                        ))}
                       </td>
                       <td className="px-2 py-2 whitespace-nowrap">{r.excelAmount}</td>
                       <td className="px-2 py-2">
