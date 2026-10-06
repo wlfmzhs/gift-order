@@ -416,6 +416,9 @@ export default function OrderForm() {
   const labelDesign = watch("label_design");
   const towelColor = watch("towel_color");
   const req = getFieldRequirements(labelDesign, towelColor);
+  // 디자인 자체에 생일이 필요한 경우(A, E)는 행사일 아래에, 타올 때문에
+  // 생일이 필요해진 경우(B, C, D)는 타올을 고른 흐름 그대로 자수 색상 아래에 보여준다.
+  const birthdayAtTop = getFieldRequirements(labelDesign).showBirthday;
   const towelIncluded = towelColor !== TOWEL_NONE;
   const eventDate = watch("event_date");
 
@@ -568,6 +571,25 @@ export default function OrderForm() {
     // 성공 시에는 완료 페이지로 이동하는 동안 버튼을 계속 비활성화해 둔다.
   };
 
+  const birthdayField = (
+    <div>
+      <label className={labelClass}>
+        첫 생일 날짜(태어난 날 1년 뒤)
+        {!birthdayAtTop && (
+          <span className="font-normal text-muted"> (타올 자수에 들어가요)</span>
+        )}
+      </label>
+      <input
+        type="date"
+        className={`${inputClass} block min-w-0 max-w-full appearance-none`}
+        {...register("birthday_date")}
+      />
+      {errors.birthday_date && (
+        <p className={errorClass}>{errors.birthday_date.message}</p>
+      )}
+    </div>
+  );
+
   return (
     <>
       <Script
@@ -674,19 +696,7 @@ export default function OrderForm() {
             )}
           </div>
 
-          {req.showBirthday && (
-            <div>
-              <label className={labelClass}>첫 생일 날짜(태어난 날 1년 뒤)</label>
-              <input
-                type="date"
-                className={`${inputClass} block min-w-0 max-w-full appearance-none`}
-                {...register("birthday_date")}
-              />
-              {errors.birthday_date && (
-                <p className={errorClass}>{errors.birthday_date.message}</p>
-              )}
-            </div>
-          )}
+          {birthdayAtTop && birthdayField}
 
           {!req.isWedding && (
             <>
@@ -816,6 +826,8 @@ export default function OrderForm() {
               선택하실 필요 없어요.
             </p>
           )}
+
+          {req.showBirthday && !birthdayAtTop && birthdayField}
         </div>
 
         {/* 배송 정보 */}
