@@ -40,8 +40,9 @@ export function formatItemName(
     const rangeText = max !== null ? `${min}~${max}개` : `${min}개 이상`;
     warnings.push(`${rangeText} 옵션인데 ${qty}개 구매 (가격 구간 확인 필요)`);
   }
-  if (name.includes("타올") && (qty < 20 || qty % 10 !== 0)) {
-    warnings.push(`타올은 20장 이상 10장 단위만 가능한데 ${qty}개 구매`);
+  if (name.includes("타올")) {
+    if (qty < 20) warnings.push(`타올 20개 미만 (${qty}개 구매)`);
+    if (qty % 10 !== 0) warnings.push(`타올 10개 단위 아님 (${qty}개 구매)`);
   }
 
   return { name: `${name}_${qty}개`, warnings };
