@@ -15,7 +15,7 @@ export interface ExportDefaults {
  * 여기서는 "최대한 합리적인 기본값"만 만들면 된다.
  */
 export function computeExportDefaults(order: NewOrderInput): ExportDefaults {
-  const req = getFieldRequirements(order.label_design);
+  const req = getFieldRequirements(order.label_design, order.towel_color);
 
   let recipientDisplay: string;
   let etc: string;

@@ -194,7 +194,7 @@ function ReviewStep({
   onEdit: () => void;
   onConfirm: () => void;
 }) {
-  const req = getFieldRequirements(data.label_design);
+  const req = getFieldRequirements(data.label_design, data.towel_color);
   const labelOption = LABEL_OPTIONS.find((o) => o.value === data.label_design);
   const towelOption = TOWEL_COLORS.find((c) => c.value === data.towel_color);
   const embroideryOption = EMBROIDERY_COLORS.find(
@@ -414,8 +414,8 @@ export default function OrderForm() {
   };
 
   const labelDesign = watch("label_design");
-  const req = getFieldRequirements(labelDesign);
   const towelColor = watch("towel_color");
+  const req = getFieldRequirements(labelDesign, towelColor);
   const towelIncluded = towelColor !== TOWEL_NONE;
   const eventDate = watch("event_date");
 
@@ -467,9 +467,15 @@ export default function OrderForm() {
         setValue("father_name", "");
         setValue("mother_name", "");
       }
-      if (!r.showBirthday) setValue("birthday_date", "");
     }
   }, [labelDesign, setValue]);
+
+  // 생일은 라벨 디자인과 타올 포함 여부 둘 다에 따라 필요 여부가 바뀌므로 따로 비운다.
+  useEffect(() => {
+    if (!getFieldRequirements(labelDesign, towelColor).showBirthday) {
+      setValue("birthday_date", "");
+    }
+  }, [labelDesign, towelColor, setValue]);
 
   const openPostcode = () => setShowPostcode(true);
   const closePostcode = () => setShowPostcode(false);

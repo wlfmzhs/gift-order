@@ -23,7 +23,7 @@ export default async function AdminOrderDetailPage({
   const order = await db.getById(id);
   if (!order) notFound();
 
-  const req = getFieldRequirements(order.label_design);
+  const req = getFieldRequirements(order.label_design, order.towel_color);
 
   return (
     <>

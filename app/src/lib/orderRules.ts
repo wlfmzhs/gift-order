@@ -1,3 +1,4 @@
+import { TOWEL_NONE } from "./towelRules";
 import type { LabelDesign } from "./types";
 
 export interface FieldRequirements {
@@ -13,8 +14,23 @@ export interface FieldRequirements {
  * B/C/D: 아기 영문이름 필요, 부모이름/생일 불필요
  * E: 아기 영문이름/생일 필요, 부모이름 불필요
  * F: 웨딩 답례품 — 아기 관련 항목 전체를 신랑/신부 항목으로 교체
+ *
+ * 단, 타올을 포함하면 타올 자수에 생일이 들어가므로 웨딩(F)을 제외한
+ * 모든 디자인에서 생일이 필요하다.
  */
-export function getFieldRequirements(label: LabelDesign): FieldRequirements {
+export function getFieldRequirements(
+  label: LabelDesign,
+  towelColor?: string | null
+): FieldRequirements {
+  const base = baseRequirements(label);
+  const towelIncluded = Boolean(towelColor) && towelColor !== TOWEL_NONE;
+  if (towelIncluded && !base.isWedding) {
+    return { ...base, showBirthday: true };
+  }
+  return base;
+}
+
+function baseRequirements(label: LabelDesign): FieldRequirements {
   switch (label) {
     case "A":
       return {

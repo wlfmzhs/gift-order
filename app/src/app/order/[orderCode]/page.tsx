@@ -26,7 +26,7 @@ export default async function OrderDetailPage({
   const order = await db.getByCode(orderCode);
   if (!order) notFound();
 
-  const req = getFieldRequirements(order.label_design);
+  const req = getFieldRequirements(order.label_design, order.towel_color);
   const canEditShipping = order.status === "접수완료";
   const trackingUrl =
     order.tracking_no && order.carrier === "롯데택배"

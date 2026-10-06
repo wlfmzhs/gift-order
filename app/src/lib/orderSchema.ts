@@ -32,7 +32,7 @@ export const orderFormSchema = z
     recipient_address2: z.string().optional(),
   })
   .superRefine((data, ctx) => {
-    const req = getFieldRequirements(data.label_design);
+    const req = getFieldRequirements(data.label_design, data.towel_color);
 
     if (data.event_date && (data.event_date < EVENT_MIN_DATE || data.event_date > EVENT_MAX_DATE)) {
       ctx.addIssue({
