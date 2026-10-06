@@ -5,13 +5,22 @@ import type { OrderStatus } from "@/lib/types";
 
 const STATUS_OPTIONS: OrderStatus[] = ["접수완료", "발송완료"];
 
+// 체험 패키지 여부는 엑셀 매칭으로 들어온 품목명("[체험]...")으로 판단한다.
+const TRIAL_KEYWORD = "[체험]";
+
 export default async function AdminExportPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; package?: string }>;
 }) {
-  const { status } = await searchParams;
-  const orders = await db.list({ status: status as OrderStatus | undefined });
+  const { status, package: pkg } = await searchParams;
+  const allOrders = await db.list({ status: status as OrderStatus | undefined });
+  const orders =
+    pkg === "trial"
+      ? allOrders.filter((o) => o.export_item_name.includes(TRIAL_KEYWORD))
+      : pkg === "regular"
+        ? allOrders.filter((o) => !o.export_item_name.includes(TRIAL_KEYWORD))
+        : allOrders;
 
   return (
     <>
@@ -37,6 +46,15 @@ export default async function AdminExportPage({
                 </option>
               ))}
             </select>
+            <select
+              name="package"
+              defaultValue={pkg ?? ""}
+              className="rounded-lg border border-border bg-surface px-3 py-2 text-sm"
+            >
+              <option value="">전체 상품</option>
+              <option value="trial">체험 패키지만</option>
+              <option value="regular">체험 패키지 제외</option>
+            </select>
             <button
               type="submit"
               className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:border-brand"
@@ -45,7 +63,12 @@ export default async function AdminExportPage({
             </button>
           </form>
 
-          <div className="mt-6">
+          <p className="mt-2 text-xs text-muted">
+            {orders.length}건 표시 중
+            {pkg && " · 체험 패키지 여부는 엑셀 매칭으로 들어온 품목명 기준이에요 (품목명이 비어 있으면 체험 아님으로 분류)"}
+          </p>
+
+          <div className="mt-4">
             <ExportGrid orders={orders} />
           </div>
         </div>
