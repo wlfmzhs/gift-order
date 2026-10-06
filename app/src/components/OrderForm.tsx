@@ -449,7 +449,12 @@ export default function OrderForm() {
 
   // 라벨 디자인을 바꾸면 더 이상 해당하지 않는 항목의 값은 비워서,
   // 화면에는 안 보이지만 실제로는 제출되는 이전 입력값이 남지 않게 한다.
+  // 실제로 디자인이 바뀌었을 때만 비운다 — 처음 열 때 임시 저장분을 불러오는
+  // 직후에 이 효과가 이전 디자인(기본값 A) 기준으로 돌면서 불러온 값을 지우지 않도록.
+  const prevLabelRef = useRef(labelDesign);
   useEffect(() => {
+    if (prevLabelRef.current === labelDesign) return;
+    prevLabelRef.current = labelDesign;
     const r = getFieldRequirements(labelDesign);
     if (r.isWedding) {
       setValue("baby_name_kr", "");
