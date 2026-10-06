@@ -235,7 +235,7 @@ function ReviewStep({
         <div>
           <ReviewRow label="행사일" value={data.event_date} />
           {req.showBirthday && (
-            <ReviewRow label="아기 첫 생일(돌)" value={data.birthday_date} />
+            <ReviewRow label="첫 생일 날짜(태어난 날 1년 뒤)" value={data.birthday_date} />
           )}
           {!req.isWedding && (
             <>
@@ -665,7 +665,7 @@ export default function OrderForm() {
 
           {req.showBirthday && (
             <div>
-              <label className={labelClass}>아기 첫 생일(돌) 날짜</label>
+              <label className={labelClass}>첫 생일 날짜(태어난 날 1년 뒤)</label>
               <input
                 type="date"
                 className={`${inputClass} block min-w-0 max-w-full appearance-none`}

@@ -79,7 +79,7 @@ export default async function OrderDetailPage({
               <Row label="라벨 디자인" value={order.label_design} />
               <Row label="행사일" value={order.event_date} />
               {req.showBirthday && (
-                <Row label="아기 첫 생일(돌)" value={order.birthday_date} />
+                <Row label="첫 생일 날짜(태어난 날 1년 뒤)" value={order.birthday_date} />
               )}
               {!req.isWedding && (
                 <>

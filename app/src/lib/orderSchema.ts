@@ -103,7 +103,7 @@ export const orderFormSchema = z
       ctx.addIssue({
         code: "custom",
         path: ["birthday_date"],
-        message: "아기 첫 생일(돌) 날짜를 입력해주세요.",
+        message: "첫 생일 날짜(태어난 날 1년 뒤)를 입력해주세요.",
       });
     }
   });
