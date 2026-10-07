@@ -54,3 +54,24 @@ create index if not exists orders_status_idx on orders (status);
 -- RLS를 켜두되 별도 정책을 추가하지 않으면 anon/authenticated 키로는 아무 것도
 -- 조회/변경할 수 없고, 서비스 롤 키만 우회하여 접근 가능하다.
 alter table orders enable row level security;
+
+-- 홈페이지 결제 엑셀에서 가져온 결제 내역 (엑셀을 올릴 때마다 누적 저장)
+-- 이미 위 내용을 실행해 둔 프로젝트라면 아래 부분만 SQL Editor에서 추가로 실행하세요.
+create table if not exists payments (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  dedupe_key text unique not null,
+  recipient_name text not null default '',
+  phone text not null default '',
+  phone_norm text not null default '',
+  item_name text not null default '',
+  amount text not null default '',
+  delivery_message text not null default '',
+  option_note text not null default '',
+  order_id uuid references orders(id) on delete set null
+);
+
+create index if not exists payments_phone_norm_idx on payments (phone_norm);
+create index if not exists payments_order_id_idx on payments (order_id);
+
+alter table payments enable row level security;

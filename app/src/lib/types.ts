@@ -62,6 +62,23 @@ export type NewOrderInput = Omit<
   | "export_etc"
 >;
 
+// 홈페이지 결제 엑셀에서 가져온 결제 1건(상품 1줄). 엑셀을 올릴 때마다 누적 저장된다.
+export interface PaymentRecord {
+  id: string;
+  created_at: string;
+  dedupe_key: string; // 같은 결제가 겹치는 엑셀에 다시 들어와도 한 번만 저장되게 하는 키
+  recipient_name: string;
+  phone: string; // 엑셀 원본 표기
+  phone_norm: string; // 숫자만(비교용)
+  item_name: string;
+  amount: string;
+  delivery_message: string;
+  option_note: string; // 옵션 구간/수량 문제 설명 ("" = 문제 없음)
+  order_id: string | null; // 연결된 주문서
+}
+
+export type NewPaymentInput = Omit<PaymentRecord, "id" | "created_at">;
+
 export interface OrderFilter {
   status?: OrderStatus;
   labelDesign?: LabelDesign;
@@ -81,4 +98,5 @@ export const EXPORT_COLUMNS = [
   "라벨타입",
   "타올색상",
   "자수색상",
+  "기타(확인사항)",
 ] as const;

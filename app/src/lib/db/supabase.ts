@@ -1,8 +1,13 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { generateOrderCode } from "../codes";
 import { computeExportDefaults } from "../exportDefaults";
-import type { OrderFilter, OrderRecord } from "../types";
-import type { OrdersDB } from "./adapter";
+import type {
+  NewPaymentInput,
+  OrderFilter,
+  OrderRecord,
+  PaymentRecord,
+} from "../types";
+import type { OrdersDB, PaymentsDB } from "./adapter";
 
 // 요청마다 클라이언트를 새로 만들지 않고 서버 인스턴스 안에서 재사용한다.
 let client: SupabaseClient | null = null;
@@ -137,6 +142,85 @@ export const supabaseOrdersDB: OrdersDB = {
 
   async delete(id) {
     const { error } = await getClient().from(TABLE).delete().eq("id", id);
+    if (error) throw new Error(error.message);
+  },
+};
+
+const PAYMENTS_TABLE = "payments";
+const INSERT_CHUNK = 500;
+
+export const supabasePaymentsDB: PaymentsDB = {
+  async list() {
+    let rows: PaymentRecord[] = [];
+    for (let from = 0; ; from += PAGE_SIZE) {
+      const { data, error } = await getClient()
+        .from(PAYMENTS_TABLE)
+        .select("*")
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, from + PAGE_SIZE - 1);
+      if (error) throw new Error(error.message);
+      const page = (data as PaymentRecord[]) ?? [];
+      rows = rows.concat(page);
+      if (page.length < PAGE_SIZE) break;
+    }
+    return rows;
+  },
+
+  async insertMany(inputs: NewPaymentInput[]) {
+    // 같은 키가 입력 안에 두 번 있으면 upsert가 오류를 내므로 먼저 걸러낸다.
+    const seen = new Set<string>();
+    const unique = inputs.filter((i) => {
+      if (seen.has(i.dedupe_key)) return false;
+      seen.add(i.dedupe_key);
+      return true;
+    });
+    const base = Date.now();
+    const rows = unique.map((input, i) => ({
+      ...input,
+      // 한 번에 넣은 결제의 순서를 유지하도록 1ms씩 어긋나게 기록한다.
+      created_at: new Date(base + i).toISOString(),
+    }));
+
+    let inserted: PaymentRecord[] = [];
+    for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
+      const { data, error } = await getClient()
+        .from(PAYMENTS_TABLE)
+        .upsert(rows.slice(i, i + INSERT_CHUNK), {
+          onConflict: "dedupe_key",
+          ignoreDuplicates: true,
+        })
+        .select();
+      if (error) throw new Error(error.message);
+      inserted = inserted.concat((data as PaymentRecord[]) ?? []);
+    }
+    return inserted;
+  },
+
+  async deleteByKeys(keys: string[]) {
+    let removed: PaymentRecord[] = [];
+    for (let i = 0; i < keys.length; i += INSERT_CHUNK) {
+      const { data, error } = await getClient()
+        .from(PAYMENTS_TABLE)
+        .delete()
+        .in("dedupe_key", keys.slice(i, i + INSERT_CHUNK))
+        .select();
+      if (error) throw new Error(error.message);
+      removed = removed.concat((data as PaymentRecord[]) ?? []);
+    }
+    return removed;
+  },
+
+  async update(id, patch) {
+    const { error } = await getClient()
+      .from(PAYMENTS_TABLE)
+      .update(patch)
+      .eq("id", id);
+    if (error) throw new Error(error.message);
+  },
+
+  async delete(id) {
+    const { error } = await getClient().from(PAYMENTS_TABLE).delete().eq("id", id);
     if (error) throw new Error(error.message);
   },
 };

@@ -5,7 +5,7 @@ import { adminLogoutAction } from "@/lib/actions/admin";
 export default function AdminHeader() {
   return (
     <header className="border-b border-border bg-surface">
-      <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-4">
+      <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-6">
           <Image
             src="/brand/logo.png"
@@ -19,10 +19,7 @@ export default function AdminHeader() {
               주문 목록
             </Link>
             <Link href="/admin/export" className="hover:text-brand">
-              시트 내보내기
-            </Link>
-            <Link href="/admin/import" className="hover:text-brand">
-              엑셀 매칭
+              시트 내보내기 · 엑셀 매칭
             </Link>
           </nav>
         </div>

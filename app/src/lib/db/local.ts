@@ -3,8 +3,8 @@ import { mkdir, readFile, rename, writeFile } from "fs/promises";
 import path from "path";
 import { generateOrderCode } from "../codes";
 import { computeExportDefaults } from "../exportDefaults";
-import type { OrderFilter, OrderRecord } from "../types";
-import type { OrdersDB } from "./adapter";
+import type { OrderFilter, OrderRecord, PaymentRecord } from "../types";
+import type { OrdersDB, PaymentsDB } from "./adapter";
 
 const DATA_DIR = path.join(process.cwd(), ".data");
 const DATA_FILE = path.join(DATA_DIR, "orders.json");
@@ -127,6 +127,86 @@ export const localOrdersDB: OrdersDB = {
     return withWriteLock(async () => {
       const orders = await readAll();
       await writeAll(orders.filter((o) => o.id !== id));
+    });
+  },
+};
+
+const PAYMENTS_FILE = path.join(DATA_DIR, "payments.json");
+
+async function readPayments(): Promise<PaymentRecord[]> {
+  try {
+    const raw = await readFile(PAYMENTS_FILE, "utf-8");
+    return JSON.parse(raw) as PaymentRecord[];
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw err;
+  }
+}
+
+async function writePayments(payments: PaymentRecord[]): Promise<void> {
+  await mkdir(DATA_DIR, { recursive: true });
+  const tmp = `${PAYMENTS_FILE}.${randomUUID()}.tmp`;
+  await writeFile(tmp, JSON.stringify(payments, null, 2), "utf-8");
+  await rename(tmp, PAYMENTS_FILE);
+}
+
+let paymentsQueue: Promise<unknown> = Promise.resolve();
+function withPaymentsLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = paymentsQueue.then(fn, fn);
+  paymentsQueue = run.catch(() => {});
+  return run;
+}
+
+export const localPaymentsDB: PaymentsDB = {
+  async list() {
+    const rows = await readPayments();
+    return rows.sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
+  },
+
+  insertMany(inputs) {
+    return withPaymentsLock(async () => {
+      const rows = await readPayments();
+      const seen = new Set(rows.map((r) => r.dedupe_key));
+      const base = Date.now();
+      const inserted: PaymentRecord[] = [];
+      for (const input of inputs) {
+        if (seen.has(input.dedupe_key)) continue;
+        seen.add(input.dedupe_key);
+        // 한 번에 넣은 결제의 순서를 유지하도록 1ms씩 어긋나게 기록한다.
+        const created_at = new Date(base + inserted.length).toISOString();
+        inserted.push({ ...input, id: randomUUID(), created_at });
+      }
+      if (inserted.length > 0) await writePayments([...rows, ...inserted]);
+      return inserted;
+    });
+  },
+
+  deleteByKeys(keys) {
+    return withPaymentsLock(async () => {
+      const keySet = new Set(keys);
+      const rows = await readPayments();
+      const removed = rows.filter((r) => keySet.has(r.dedupe_key));
+      if (removed.length > 0) {
+        await writePayments(rows.filter((r) => !keySet.has(r.dedupe_key)));
+      }
+      return removed;
+    });
+  },
+
+  update(id, patch) {
+    return withPaymentsLock(async () => {
+      const rows = await readPayments();
+      const idx = rows.findIndex((r) => r.id === id);
+      if (idx === -1) throw new Error("결제 내역을 찾을 수 없습니다.");
+      rows[idx] = { ...rows[idx], ...patch };
+      await writePayments(rows);
+    });
+  },
+
+  delete(id) {
+    return withPaymentsLock(async () => {
+      const rows = await readPayments();
+      await writePayments(rows.filter((r) => r.id !== id));
     });
   },
 };
