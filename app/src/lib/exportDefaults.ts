@@ -17,30 +17,29 @@ export interface ExportDefaults {
 export function computeExportDefaults(order: NewOrderInput): ExportDefaults {
   const req = getFieldRequirements(order.label_design, order.towel_color);
 
-  let recipientDisplay: string;
+  let inner: string;
   let etc: string;
 
   if (req.isWedding) {
     const brideName = order.bride_name_kr ?? "";
-    const brideEn = order.bride_name_en ? `(${order.bride_name_en})` : "";
-    recipientDisplay = `${brideName}${brideEn}`.trim();
+    inner = [brideName, order.bride_name_en ?? ""].filter(Boolean).join(" ");
     const groom = order.groom_name_kr ?? "";
     const bride = order.bride_name_kr ?? "";
     etc = groom || bride ? `${groom}/${bride} 신랑 신부` : "";
   } else {
-    const mom = order.mother_name ? `${order.mother_name} ` : "";
-    const baby = order.baby_name_kr ?? "";
-    const babyEn = order.baby_name_en ? `(${order.baby_name_en})` : "";
-    recipientDisplay = `${mom}${baby}${babyEn}`.trim();
+    inner = [order.mother_name ?? "", order.baby_name_kr ?? "", order.baby_name_en ?? ""]
+      .filter(Boolean)
+      .join(" ");
     etc =
       order.father_name || order.mother_name
         ? `${order.father_name ?? ""}/${order.mother_name ?? ""} 아빠 엄마`
         : "";
   }
 
-  if (!recipientDisplay) {
-    recipientDisplay = order.recipient_name;
-  }
+  // 받는분 성함을 맨 앞에: "임인순 (이채은 Lee Chae eun)"
+  const recipientDisplay = inner
+    ? `${order.recipient_name} (${inner})`
+    : order.recipient_name;
 
   const birthday = req.showBirthday && order.birthday_date ? order.birthday_date : "";
 

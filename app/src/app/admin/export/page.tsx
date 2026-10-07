@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import AdminHeader from "@/components/AdminHeader";
 import ExportGrid from "@/components/ExportGrid";
 import ExportUpload from "@/components/ExportUpload";
+import NormalizeButton from "@/components/NormalizeButton";
 import { db, paymentsDb } from "@/lib/db";
 import { buildExportRows, rowState, type RowState } from "@/lib/exportRows";
 import { reconcilePayments } from "@/lib/reconcile";
@@ -82,8 +83,9 @@ export default async function AdminExportPage({
             </p>
           )}
 
-          <div className="mt-4">
+          <div className="mt-4 grid gap-3 lg:grid-cols-2">
             <ExportUpload />
+            <NormalizeButton />
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">

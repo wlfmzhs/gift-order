@@ -89,7 +89,7 @@ Supabase를 쓰는 경우 `supabase/schema.sql` 맨 아래 `payments` 테이블 
 - `src/lib/orderRules.ts` — 라벨 디자인(A~F)별 필요 항목 정의
 - `src/lib/exportRows.ts` — 시트 행 구성(매칭 상태, 확인사항, 정렬)
 - `src/lib/reconcile.ts` — 결제 ↔ 주문서 자동 연결
-- `src/lib/exportDefaults.ts` — 스프레드시트 출력값 기본 계산 규칙 (받는분성명 표시, 기타, 발송일 등)
+- `src/lib/exportDefaults.ts` — 스프레드시트 출력값 기본 계산 규칙 (받는분성명 "성함 (표시이름)" 형식, 기타, 발송일 등)
 - `src/lib/db/` — DB 어댑터 (로컬 JSON / Supabase 전환)
 - `src/lib/actions/` — Server Actions (주문 생성, 조회, 관리자 로그인/수정)
 - `src/app/order/*` — 고객용 주문서/조회 페이지
