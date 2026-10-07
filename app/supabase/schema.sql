@@ -68,10 +68,16 @@ create table if not exists payments (
   amount text not null default '',
   delivery_message text not null default '',
   option_note text not null default '',
-  order_id uuid references orders(id) on delete set null
+  order_id uuid references orders(id) on delete set null,
+  ignored boolean not null default false
 );
 
 create index if not exists payments_phone_norm_idx on payments (phone_norm);
 create index if not exists payments_order_id_idx on payments (order_id);
 
 alter table payments enable row level security;
+
+-- payments 테이블을 이미 만들어 두었다면(위 create 구문을 먼저 실행한 경우) 아래 한 줄만 추가로 실행하세요.
+-- 시트 내보내기 화면에서 결제 내역을 삭제(숨김)하는 기능에 필요합니다.
+alter table payments add column if not exists ignored boolean not null default false;
+notify pgrst, 'reload schema';

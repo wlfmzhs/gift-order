@@ -202,6 +202,35 @@ export async function importPaymentsAction(
   }
 }
 
+/**
+ * 주문서와 연결되지 않은 결제를 목록에서 삭제한다.
+ * 기록은 지우지 않고 숨김 표시만 해서, 같은 엑셀을 다시 올려도 되살아나지 않는다.
+ */
+export async function ignorePaymentsAction(
+  paymentIds: string[]
+): Promise<{ ok: boolean; message?: string }> {
+  try {
+    await requireAdmin();
+    const payments = await paymentsDb.list();
+    const ids = new Set(paymentIds);
+    const targets = payments.filter((p) => ids.has(p.id));
+    if (targets.length === 0) return { ok: false, message: "삭제할 결제 내역을 찾을 수 없습니다." };
+    if (targets.some((p) => p.order_id)) {
+      return { ok: false, message: "이미 주문서에 연결된 결제는 삭제할 수 없습니다." };
+    }
+    for (const p of targets) await paymentsDb.update(p.id, { ignored: true });
+    return { ok: true };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "삭제 중 오류가 발생했습니다.";
+    return {
+      ok: false,
+      message: msg.includes("ignored")
+        ? "Supabase에서 payments 테이블에 ignored 칸을 추가하는 SQL을 먼저 실행해주세요. (supabase/schema.sql 맨 아래 참고)"
+        : msg,
+    };
+  }
+}
+
 /** 같은 연락처의 주문서가 여러 건일 때, 결제를 어느 주문서에 붙일지 직접 정한다. */
 export async function linkPaymentsAction(
   orderId: string,

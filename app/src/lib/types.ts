@@ -75,6 +75,7 @@ export interface PaymentRecord {
   delivery_message: string;
   option_note: string; // 옵션 구간/수량 문제 설명 ("" = 문제 없음)
   order_id: string | null; // 연결된 주문서
+  ignored?: boolean; // true면 목록에서 삭제한 결제 (같은 엑셀을 다시 올려도 되살아나지 않게 기록만 남김)
 }
 
 export type NewPaymentInput = Omit<PaymentRecord, "id" | "created_at">;

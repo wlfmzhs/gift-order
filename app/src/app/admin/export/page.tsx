@@ -32,7 +32,7 @@ export default async function AdminExportPage({
   let payments: PaymentRecord[] = [];
   let paymentsError: string | null = null;
   try {
-    payments = await paymentsDb.list();
+    payments = (await paymentsDb.list()).filter((p) => !p.ignored);
     const reconciled = await reconcilePayments(orders, payments);
     orders = reconciled.orders;
     payments = reconciled.payments;

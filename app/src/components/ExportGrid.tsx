@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { updateOrderAction } from "@/lib/actions/admin";
-import { linkPaymentsAction } from "@/lib/actions/payments";
+import { ignorePaymentsAction, linkPaymentsAction } from "@/lib/actions/payments";
 import {
   evaluateOrderRow,
   rowState,
@@ -136,6 +136,26 @@ export default function ExportGrid({ rows }: { rows: ExportRow[] }) {
     });
   };
 
+  const handleIgnore = (r: ExportRow) => {
+    if (
+      !window.confirm(
+        `${r.recipient} (${r.phone}) 결제 내역을 목록에서 삭제할까요?
+같은 엑셀을 다시 올려도 다시 나타나지 않아요.`
+      )
+    ) {
+      return;
+    }
+    startTransition(async () => {
+      const result = await ignorePaymentsAction(r.paymentIds);
+      if (!result.ok) {
+        setSaveError(result.message ?? "삭제에 실패했어요.");
+        return;
+      }
+      setSaveError(null);
+      router.refresh();
+    });
+  };
+
   // Enter는 줄바꿈 대신 칸 이동(저장)으로 쓴다.
   const blurOnEnter = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
@@ -246,6 +266,15 @@ export default function ExportGrid({ rows }: { rows: ExportRow[] }) {
                       <span className="font-medium text-red-600">{notes.join(", ")}</span>
                     )}
                     <NoticeSms customerName={r.customerName} phone={r.phone} notes={notes} />
+                    {r.kind === "payment" && (
+                      <button
+                        onClick={() => handleIgnore(r)}
+                        disabled={isPending}
+                        className="mt-1 rounded-full border border-red-200 px-2.5 py-0.5 text-[11px] font-medium text-red-600 hover:bg-red-50 disabled:opacity-40"
+                      >
+                        삭제
+                      </button>
+                    )}
                     {r.kind === "payment" && r.candidates.length > 0 && (
                       <div className="mt-1 flex items-center gap-1">
                         <select
