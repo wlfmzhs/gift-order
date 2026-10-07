@@ -1,5 +1,5 @@
 import { db, paymentsDb } from "./db";
-import { mergePayments } from "./paymentMerge";
+import { isTrialOnlyValue, mergePayments, partitionPayments } from "./paymentMerge";
 import { normalizePhone } from "./phone";
 import type { OrderRecord, PaymentRecord } from "./types";
 
@@ -54,6 +54,20 @@ export async function reconcilePayments(
     await linkPaymentsToOrder(candidates[0], unlinked, paymentList);
   }
 
+  // 3) 체험 패키지와 답례품을 같이 결제한 고객: 주문서에 체험 값만 남아 있으면 답례품 값으로 바로잡는다.
+  const linkedByOrder = new Map<string, PaymentRecord[]>();
+  for (const p of paymentList) {
+    if (!p.order_id) continue;
+    const arr = linkedByOrder.get(p.order_id) ?? [];
+    arr.push(p);
+    linkedByOrder.set(p.order_id, arr);
+  }
+  for (const [orderId, list] of linkedByOrder) {
+    if (!partitionPayments(list).split) continue;
+    const order = orderById.get(orderId);
+    if (order) await syncOrderFromPayments(order, list, list);
+  }
+
   return { orders: orderList, payments: paymentList };
 }
 
@@ -71,10 +85,24 @@ export async function linkPaymentsToOrder(
     await paymentsDb.update(p.id, { order_id: order.id });
     p.order_id = order.id;
   }
-  const after = [...before, ...toLink];
+  await syncOrderFromPayments(order, before, [...before, ...toLink]);
+}
 
-  const oldM = mergePayments(before);
-  const newM = mergePayments(after);
+/**
+ * 주문서의 품목명/금액/배송메모를 연결된 결제에 맞춰 채운다.
+ * 주문서 줄은 "대표 결제"(일반 결제가 있으면 일반만, 체험뿐이면 체험)를 나타낸다.
+ * 체험은 시트에서 별도 줄로 나오기 때문이다.
+ */
+async function syncOrderFromPayments(
+  order: OrderRecord,
+  before: PaymentRecord[],
+  after: PaymentRecord[]
+): Promise<void> {
+  const oldM = mergePayments(partitionPayments(before).rep);
+  const pa = partitionPayments(after);
+  const newM = mergePayments(pa.rep);
+  // 예전에 체험 결제만 반영해 둔 값이 남아 있는데 이제 답례품 결제도 있는 경우
+  const staleTrial = pa.split && isTrialOnlyValue(order.export_item_name);
 
   const patch: Partial<OrderRecord> = {};
   const decide = (
@@ -87,6 +115,8 @@ export async function linkPaymentsToOrder(
     if (cur.trim() === "") {
       patch[field] = newValue;
     } else if (before.length > 0 && cur === oldValue && cur !== newValue) {
+      patch[field] = newValue;
+    } else if (staleTrial && cur !== newValue) {
       patch[field] = newValue;
     }
   };

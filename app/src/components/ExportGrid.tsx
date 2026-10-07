@@ -204,6 +204,11 @@ export default function ExportGrid({ rows }: { rows: ExportRow[] }) {
                     >
                       {st.label}
                     </span>
+                    {r.kind === "trial" && (
+                      <span className="ml-1 whitespace-nowrap rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-semibold text-sky-700">
+                        체험
+                      </span>
+                    )}
                   </td>
                   <td className="px-1 py-1">
                     {isOrder ? textInput(r, "recipient") : <span className="px-1">{r.recipient}</span>}
@@ -221,6 +226,7 @@ export default function ExportGrid({ rows }: { rows: ExportRow[] }) {
                   </td>
                   <td className="px-1 py-1">{isOrder ? textInput(r, "birthday") : null}</td>
                   <td className="px-1 py-1">
+                    {!isOrder && <span className="whitespace-nowrap px-1">{r.shipDate}</span>}
                     {isOrder && (
                       <input
                         type="date"

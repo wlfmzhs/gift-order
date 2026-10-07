@@ -1,11 +1,14 @@
 import { towelQuantityNotes } from "./itemName";
-import { mergePayments, parseAmount } from "./paymentMerge";
+import {
+  TRIAL_KEYWORD,
+  isTrialItem,
+  mergePayments,
+  parseAmount,
+  partitionPayments,
+} from "./paymentMerge";
 import { normalizePhone } from "./phone";
 import { TOWEL_NONE } from "./towelRules";
 import type { OrderRecord, OrderStatus, PaymentRecord } from "./types";
-
-// 체험 패키지 여부는 엑셀 매칭으로 들어온 품목명("[체험]...")으로 판단한다.
-const TRIAL_KEYWORD = "[체험]";
 
 export const NOTE_UNPAID = "결제X 주문서O";
 export const NOTE_NO_ORDER = "결제O 주문서X";
@@ -67,7 +70,8 @@ export function evaluateOrderRow(
 
 export interface ExportRow {
   key: string;
-  kind: "order" | "payment";
+  // order: 주문서 줄 / trial: 같은 고객의 체험 패키지 분리 줄 / payment: 주문서 없는 결제 줄
+  kind: "order" | "payment" | "trial";
   orderId: string | null;
   paymentIds: string[]; // 결제 행이면 이 행을 이루는 결제들
   pairing: Pairing;
@@ -168,7 +172,9 @@ export function buildExportRows(
     const phoneKey = normalizePhone(o.recipient_phone);
     const samePhoneCount = phoneKey ? (ordersByPhone.get(phoneKey) ?? []).length : 1;
     const myPayments = linked.get(o.id) ?? [];
-    const merged = mergePayments(myPayments);
+    // 체험 패키지와 답례품을 같이 산 고객은 체험을 별도 줄로 나누고, 주문서 줄은 답례품 기준으로 본다.
+    const part = partitionPayments(myPayments);
+    const merged = mergePayments(part.rep);
     const meta: OrderNoteMeta = {
       hasPayments: myPayments.length > 0,
       mergedItem: merged.item,
@@ -210,10 +216,38 @@ export function buildExportRows(
       towelColor: towelColorForSheet(o.towel_color),
       embroideryColor: embroideryColorForSheet(o.embroidery_color),
     });
+
+    if (part.split) {
+      const trialMerged = mergePayments(part.trial);
+      rows.push({
+        key: `trial:${o.id}`,
+        kind: "trial",
+        orderId: o.id,
+        paymentIds: part.trial.map((p) => p.id),
+        pairing: "matched",
+        notes: clean(towelQuantityNotes(trialMerged.item)),
+        isTrial: true,
+        orderStatus: o.status,
+        candidates: [],
+        meta: null,
+        customerName: o.recipient_name,
+        recipient: o.export_recipient_display,
+        phone: o.recipient_phone,
+        address: `${o.recipient_address1} ${o.recipient_address2 ?? ""}`.trim(),
+        item: trialMerged.item,
+        message: trialMerged.message,
+        amount: trialMerged.amount,
+        birthday: "",
+        shipDate: o.ship_date ?? "",
+        etc: "",
+        label: "",
+        towelColor: "",
+        embroideryColor: "",
+      });
+    }
   }
 
   for (const [groupKey, group] of unlinkedByGroup) {
-    const merged = mergePayments(group);
     const phoneKey = group[0].phone_norm;
     const phoneOrders = phoneKey ? ordersByPhone.get(phoneKey) ?? [] : [];
     const phoneOrderIds = new Set(phoneOrders.map((o) => o.id));
@@ -233,47 +267,54 @@ export function buildExportRows(
       })),
     ];
 
-    const notes = [
-      NOTE_NO_ORDER,
-      ...merged.optionNotes,
-      ...towelQuantityNotes(merged.item),
-    ];
-    if (phoneOrders.length > 1) {
-      notes.push(
-        `같은 연락처 주문서 ${phoneOrders.length}건 - 연결할 주문서를 골라주세요`
-      );
-    }
-    if (nameOrders.length > 0) {
-      notes.push(
-        `연락처는 다르지만 이름이 같은 주문서 ${nameOrders.length}건 있음 - 맞는지 확인하고 연결해주세요`
-      );
-    }
+    // 체험과 답례품을 같이 결제했으면 줄을 나눈다. (연결은 어느 줄에서 해도 같은 고객의 결제 전체에 적용)
+    const part = partitionPayments(group);
+    const subsets = part.split ? [part.regular, part.trial] : [group];
 
-    rows.push({
-      key: `pay:${groupKey}`,
-      kind: "payment",
-      orderId: null,
-      paymentIds: group.map((p) => p.id),
-      pairing: "no-order",
-      notes: clean(notes),
-      isTrial: merged.item.includes(TRIAL_KEYWORD),
-      orderStatus: null,
-      candidates,
-      meta: null,
-      customerName: group[0].recipient_name,
-      recipient: group[0].recipient_name,
-      phone: group[0].phone,
-      address: "",
-      item: merged.item,
-      message: merged.message,
-      amount: merged.amount,
-      birthday: "",
-      shipDate: "",
-      etc: "",
-      label: "",
-      towelColor: "",
-      embroideryColor: "",
-    });
+    for (const subset of subsets) {
+      const merged = mergePayments(subset);
+      const notes = [
+        NOTE_NO_ORDER,
+        ...merged.optionNotes,
+        ...towelQuantityNotes(merged.item),
+      ];
+      if (phoneOrders.length > 1) {
+        notes.push(
+          `같은 연락처 주문서 ${phoneOrders.length}건 - 연결할 주문서를 골라주세요`
+        );
+      }
+      if (nameOrders.length > 0) {
+        notes.push(
+          `연락처는 다르지만 이름이 같은 주문서 ${nameOrders.length}건 있음 - 맞는지 확인하고 연결해주세요`
+        );
+      }
+
+      rows.push({
+        key: `pay:${groupKey}${part.split ? (isTrialItem(merged.item) ? ":trial" : ":regular") : ""}`,
+        kind: "payment",
+        orderId: null,
+        paymentIds: group.map((p) => p.id),
+        pairing: "no-order",
+        notes: clean(notes),
+        isTrial: isTrialItem(merged.item),
+        orderStatus: null,
+        candidates,
+        meta: null,
+        customerName: group[0].recipient_name,
+        recipient: group[0].recipient_name,
+        phone: group[0].phone,
+        address: "",
+        item: merged.item,
+        message: merged.message,
+        amount: merged.amount,
+        birthday: "",
+        shipDate: "",
+        etc: "",
+        label: "",
+        towelColor: "",
+        embroideryColor: "",
+      });
+    }
   }
 
   return sortExportRows(rows, orders);
