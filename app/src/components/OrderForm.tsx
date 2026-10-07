@@ -613,7 +613,12 @@ export default function OrderForm() {
         )}
         {/* 라벨 디자인 선택 */}
         <div className={sectionClass}>
-          <h2 className="font-semibold">라벨 디자인 선택</h2>
+          <h2 className="font-semibold">
+            라벨 디자인 선택{" "}
+            <span className="text-xs font-normal text-muted">
+              (단품과 세트 구분 없이 선택해 주세요)
+            </span>
+          </h2>
           <p className="text-xs text-muted">
             이미지를 눌러 크게 보실 수 있어요.
           </p>
