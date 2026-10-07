@@ -58,6 +58,7 @@ export default async function AdminDashboardPage({
                   <th className="px-4 py-3">접수일</th>
                   <th className="px-4 py-3">라벨</th>
                   <th className="px-4 py-3">받는분</th>
+                  <th className="px-4 py-3">아이이름</th>
                   <th className="px-4 py-3">행사일</th>
                   <th className="px-4 py-3">발송일</th>
                   <th className="px-2 py-3">상태</th>
@@ -71,7 +72,7 @@ export default async function AdminDashboardPage({
                 ))}
                 {orders.length === 0 && (
                   <tr>
-                    <td colSpan={9} className="px-4 py-8 text-center text-muted">
+                    <td colSpan={10} className="px-4 py-8 text-center text-muted">
                       주문이 없습니다.
                     </td>
                   </tr>

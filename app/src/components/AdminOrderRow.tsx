@@ -66,6 +66,12 @@ export default function AdminOrderRow({ order }: { order: OrderRecord }) {
       <td className="px-4 py-3 text-muted">{order.created_at.slice(0, 10)}</td>
       <td className="px-4 py-3">{order.label_design}</td>
       <td className="px-4 py-3">{order.recipient_name}</td>
+      <td className="px-4 py-3">
+        {order.baby_name_kr ??
+          (order.groom_name_kr || order.bride_name_kr
+            ? `${order.groom_name_kr ?? ""}/${order.bride_name_kr ?? ""}`
+            : "")}
+      </td>
       <td className="px-4 py-3">{order.event_date}</td>
       <td className="px-4 py-3">{order.ship_date}</td>
       <td className="px-2 py-2">
