@@ -1,6 +1,8 @@
 import { createHash } from "crypto";
+import Link from "next/link";
 import AdminHeader from "@/components/AdminHeader";
 import ExportGrid from "@/components/ExportGrid";
+import ExportedPaste from "@/components/ExportedPaste";
 import ExportUpload from "@/components/ExportUpload";
 import NormalizeButton from "@/components/NormalizeButton";
 import { db, paymentsDb } from "@/lib/db";
@@ -22,9 +24,10 @@ const MATCH_OPTIONS: { value: string; label: string }[] = [
 export default async function AdminExportPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; package?: string; match?: string }>;
+  searchParams: Promise<{ status?: string; package?: string; match?: string; tab?: string }>;
 }) {
-  const { status, package: pkg, match } = await searchParams;
+  const { status, package: pkg, match, tab } = await searchParams;
+  const isDone = tab === "done";
 
   let orders = await db.list();
 
@@ -46,10 +49,13 @@ export default async function AdminExportPage({
   const shippedIds = new Set(
     orders.filter((o) => (o.tracking_no ?? "").trim() !== "").map((o) => o.id)
   );
-  const allRows = buildExportRows(
+  const everyRow = buildExportRows(
     orders.filter((o) => !shippedIds.has(o.id)),
     payments.filter((p) => !p.order_id || !shippedIds.has(p.order_id))
   );
+  const pendingCount = everyRow.filter((r) => !r.exported).length;
+  const doneCount = everyRow.length - pendingCount;
+  const allRows = everyRow.filter((r) => r.exported === isDone);
 
   const stateOf = (r: ExportRow) =>
     rowState(r.pairing, r.notes, r.kind === "order" && isAcked(r.notesAck, r.notes));
@@ -81,8 +87,8 @@ export default async function AdminExportPage({
           <h1 className="text-lg font-semibold">시트 내보내기 · 엑셀 매칭</h1>
           <p className="mt-1 text-sm text-muted">
             결제 엑셀을 올리면 연락처로 주문서와 자동 매칭돼요. 발송일이 빠른 순서(체험 패키지는
-            항상 맨 위)로 정렬되어 있고, 셀을 직접 고칠 수 있어요. 다 확인하셨으면 표를 복사해서
-            스프레드시트에 붙여넣으세요.
+            항상 맨 위)로 정렬되어 있고, 셀을 직접 고칠 수 있어요. 다 확인하셨으면 내보낼 행을 선택해서
+            복사한 뒤 스프레드시트에 붙여넣으세요. 복사한 행은 &apos;내보내기 완료&apos; 탭으로 옮겨져요.
           </p>
 
           {paymentsError && (
@@ -93,10 +99,33 @@ export default async function AdminExportPage({
             </p>
           )}
 
-          <div className="mt-4 grid gap-3 lg:grid-cols-2">
-            <ExportUpload />
-            <NormalizeButton />
+          <div className="mt-4 flex gap-2 border-b border-border">
+            {[
+              { id: "pending", label: "내보내기 전", count: pendingCount, href: "/admin/export" },
+              { id: "done", label: "내보내기 완료", count: doneCount, href: "/admin/export?tab=done" },
+            ].map((t) => {
+              const active = (t.id === "done") === isDone;
+              return (
+                <Link
+                  key={t.id}
+                  href={t.href}
+                  className={`-mb-px border-b-2 px-4 py-2 text-sm font-semibold ${
+                    active ? "border-brand text-brand" : "border-transparent text-muted hover:text-foreground"
+                  }`}
+                >
+                  {t.label} {t.count}
+                </Link>
+              );
+            })}
           </div>
+
+          {!isDone && (
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+              <ExportUpload />
+              <NormalizeButton />
+              <ExportedPaste />
+            </div>
+          )}
 
           <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
             <span className="rounded-full bg-green-100 px-3 py-1 font-semibold text-green-700">
@@ -118,6 +147,7 @@ export default async function AdminExportPage({
           </div>
 
           <form className="mt-3 flex flex-wrap gap-2" method="get">
+            {isDone && <input type="hidden" name="tab" value="done" />}
             <select
               name="status"
               defaultValue={status ?? ""}
@@ -164,7 +194,7 @@ export default async function AdminExportPage({
           </p>
 
           <div className="mt-3">
-            <ExportGrid key={gridKey} rows={rows} />
+            <ExportGrid key={`${gridKey}:${isDone}`} rows={rows} done={isDone} />
           </div>
         </div>
       </main>

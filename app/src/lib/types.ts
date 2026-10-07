@@ -44,6 +44,7 @@ export interface OrderRecord {
   export_birthday: string;
   export_etc: string;
   notes_ack?: string; // 시트 화면에서 "확인완료"한 확인사항 (그때의 확인사항 목록을 | 로 이은 값)
+  exported_at?: string | null; // 시트로 내보내기(복사) 처리한 시각 (없으면 "내보내기 전")
 }
 
 export type NewOrderInput = Omit<
@@ -77,6 +78,7 @@ export interface PaymentRecord {
   delivery_message: string;
   option_note: string; // 옵션 구간/수량 문제 설명 ("" = 문제 없음)
   order_id: string | null; // 연결된 주문서
+  exported_at?: string | null; // 시트로 내보내기(복사) 처리한 시각 (없으면 "내보내기 전")
   ignored?: boolean; // true면 목록에서 삭제한 결제 (같은 엑셀을 다시 올려도 되살아나지 않게 기록만 남김)
 }
 

@@ -91,3 +91,8 @@ notify pgrst, 'reload schema';
 -- 시트 화면의 "확인완료" 표시 기능에 필요합니다. orders 테이블을 이미 만들어 두었다면 아래 한 줄을 실행하세요.
 alter table orders add column if not exists notes_ack text not null default '';
 notify pgrst, 'reload schema';
+
+-- 시트 내보내기 화면의 "내보내기 전 / 내보내기 완료" 탭 기능에 필요합니다. 이미 테이블을 만들어 두었다면 아래를 실행하세요.
+alter table orders add column if not exists exported_at timestamptz;
+alter table payments add column if not exists exported_at timestamptz;
+notify pgrst, 'reload schema';

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { updateOrderAction } from "@/lib/actions/admin";
+import { setExportedAction } from "@/lib/actions/exportStatus";
 import { ignorePaymentsAction, linkPaymentsAction } from "@/lib/actions/payments";
 import {
   evaluateOrderRow,
@@ -52,10 +53,11 @@ const cellClass =
   "rounded border border-transparent bg-transparent px-1 py-0.5 text-xs outline-none [field-sizing:content] focus:border-brand focus:bg-surface";
 const textAreaClass = `${cellClass} block max-w-[18rem] min-w-[5rem] resize-none whitespace-pre-wrap break-words`;
 
-export default function ExportGrid({ rows }: { rows: ExportRow[] }) {
+export default function ExportGrid({ rows, done }: { rows: ExportRow[]; done: boolean }) {
   const router = useRouter();
   const [edits, setEdits] = useState<Edits>({});
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [saveError, setSaveError] = useState<string | null>(null);
   const [linkSel, setLinkSel] = useState<Record<string, string>>({});
   const [isPending, startTransition] = useTransition();
@@ -97,8 +99,21 @@ export default function ExportGrid({ rows }: { rows: ExportRow[] }) {
     return { pairing: r.pairing, notes: r.notes };
   };
 
-  const handleCopyAll = async () => {
-    const lines = rows.map((r) =>
+  const selectedRows = rows.filter((r) => selected.has(r.key));
+  const allSelected = rows.length > 0 && selectedRows.length === rows.length;
+
+  const toggleRow = (key: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
+
+  const toggleAll = () =>
+    setSelected(allSelected ? new Set() : new Set(rows.map((r) => r.key)));
+
+  const copyRows = async (target: ExportRow[]): Promise<boolean> => {
+    const lines = target.map((r) =>
       [
         val(r, "recipient"),
         r.phone,
@@ -122,11 +137,55 @@ export default function ExportGrid({ rows }: { rows: ExportRow[] }) {
     );
     try {
       await navigator.clipboard.writeText(lines.join("\n"));
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      return true;
     } catch {
       setSaveError("복사에 실패했어요. 브라우저의 클립보드 권한을 확인해주세요.");
+      return false;
     }
+  };
+
+  const flash = (msg: string) => {
+    setCopied(msg);
+    setTimeout(() => setCopied(null), 2500);
+  };
+
+  const toTargets = (target: ExportRow[]) =>
+    target.map((r) => ({
+      orderId: r.kind === "order" ? r.orderId : null,
+      paymentIds: r.exportPaymentIds,
+    }));
+
+  // 복사한 뒤 '내보내기 완료' 탭으로 옮긴다.
+  const handleExport = (target: ExportRow[]) => {
+    if (target.length === 0) return;
+    startTransition(async () => {
+      if (!(await copyRows(target))) return;
+      const result = await setExportedAction(toTargets(target), true);
+      if (!result.ok) {
+        setSaveError(result.message ?? "내보내기 처리에 실패했어요.");
+        return;
+      }
+      setSaveError(null);
+      flash(`${target.length}행 복사됨 · 내보내기 완료로 이동`);
+      router.refresh();
+    });
+  };
+
+  const handleCopyOnly = async (target: ExportRow[]) => {
+    if (target.length > 0 && (await copyRows(target))) flash(`${target.length}행 복사됨`);
+  };
+
+  const handleRevert = (target: ExportRow[]) => {
+    if (target.length === 0) return;
+    startTransition(async () => {
+      const result = await setExportedAction(toTargets(target), false);
+      if (!result.ok) {
+        setSaveError(result.message ?? "되돌리기에 실패했어요.");
+        return;
+      }
+      setSaveError(null);
+      router.refresh();
+    });
   };
 
   const handleLink = (r: ExportRow) => {
@@ -196,17 +255,55 @@ export default function ExportGrid({ rows }: { rows: ExportRow[] }) {
     <div>
       <div className="mb-2 flex items-center justify-end gap-3">
         {saveError && <span className="text-xs text-red-600">{saveError}</span>}
-        <button
-          onClick={handleCopyAll}
-          className="rounded-full bg-brand px-5 py-2 text-sm font-medium text-white hover:bg-brand-dark"
-        >
-          {copied ? "복사됨!" : `표 전체 복사 (${rows.length}행)`}
-        </button>
+        {copied && <span className="text-xs font-medium text-green-700">{copied}</span>}
+        {done ? (
+          <>
+            <button
+              onClick={() => handleCopyOnly(selectedRows)}
+              disabled={selectedRows.length === 0}
+              className="rounded-full border border-border px-4 py-2 text-sm font-medium hover:border-brand disabled:opacity-40"
+            >
+              선택 복사만 ({selectedRows.length}행)
+            </button>
+            <button
+              onClick={() => handleRevert(selectedRows)}
+              disabled={selectedRows.length === 0 || isPending}
+              className="rounded-full bg-brand px-5 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-40"
+            >
+              선택 내보내기 전으로 되돌리기 ({selectedRows.length}행)
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={() => handleExport(rows)}
+              disabled={rows.length === 0 || isPending}
+              className="rounded-full border border-border px-4 py-2 text-sm font-medium hover:border-brand disabled:opacity-40"
+            >
+              전체 복사·내보내기 ({rows.length}행)
+            </button>
+            <button
+              onClick={() => handleExport(selectedRows)}
+              disabled={selectedRows.length === 0 || isPending}
+              className="rounded-full bg-brand px-5 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-40"
+            >
+              선택 복사·내보내기 ({selectedRows.length}행)
+            </button>
+          </>
+        )}
       </div>
       <div className="max-h-[78vh] overflow-auto rounded-2xl border border-border bg-surface">
         <table className="w-full text-xs">
           <thead className="sticky top-0 z-10 bg-surface shadow-[0_1px_0_var(--border)]">
             <tr className="text-left text-[11px] text-muted">
+              <th className="px-2 py-2">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleAll}
+                  aria-label="전체 선택"
+                />
+              </th>
               <th className="whitespace-nowrap px-2 py-2">상태</th>
               {EXPORT_COLUMNS.map((c) => (
                 <th key={c} className="whitespace-nowrap px-2 py-2">
@@ -227,6 +324,14 @@ export default function ExportGrid({ rows }: { rows: ExportRow[] }) {
                   key={r.key}
                   className={`border-b border-border align-top last:border-0 ${st.row}`}
                 >
+                  <td className="px-2 py-1.5">
+                    <input
+                      type="checkbox"
+                      checked={selected.has(r.key)}
+                      onChange={() => toggleRow(r.key)}
+                      aria-label={`${r.recipient} 선택`}
+                    />
+                  </td>
                   <td className="px-2 py-1.5">
                     <span
                       className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${st.badge}`}
@@ -333,10 +438,10 @@ export default function ExportGrid({ rows }: { rows: ExportRow[] }) {
             {rows.length === 0 && (
               <tr>
                 <td
-                  colSpan={EXPORT_COLUMNS.length + 1}
+                  colSpan={EXPORT_COLUMNS.length + 2}
                   className="px-4 py-8 text-center text-muted"
                 >
-                  표시할 주문이 없습니다.
+                  {done ? "내보내기 완료된 행이 없습니다." : "내보낼 새 행이 없습니다."}
                 </td>
               </tr>
             )}

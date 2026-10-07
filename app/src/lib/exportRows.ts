@@ -83,6 +83,8 @@ export interface ExportRow {
   notes: string[];
   isTrial: boolean;
   orderStatus: OrderStatus | null;
+  exported: boolean; // 이미 시트로 내보낸 행
+  exportPaymentIds: string[]; // 내보내기 처리할 때 표시할 결제들 (주문서 줄은 주문서 자체에 표시하므로 비어 있음)
   candidates: LinkCandidate[]; // 결제 행에서 연결할 수 있는 같은 연락처 주문서
   meta: OrderNoteMeta | null; // 주문서 행만
 
@@ -207,6 +209,8 @@ export function buildExportRows(
       notes,
       isTrial: o.export_item_name.includes(TRIAL_KEYWORD),
       orderStatus: o.status,
+      exported: Boolean(o.exported_at),
+      exportPaymentIds: [],
       candidates: [],
       meta,
       customerName: o.recipient_name,
@@ -236,6 +240,8 @@ export function buildExportRows(
         notes: clean(towelQuantityNotes(trialMerged.item)),
         isTrial: true,
         orderStatus: o.status,
+        exported: part.trial.length > 0 && part.trial.every((p) => p.exported_at),
+        exportPaymentIds: part.trial.map((p) => p.id),
         candidates: [],
         meta: null,
         customerName: o.recipient_name,
@@ -307,6 +313,8 @@ export function buildExportRows(
         notes: clean(notes),
         isTrial: isTrialItem(merged.item),
         orderStatus: null,
+        exported: subset.length > 0 && subset.every((p) => p.exported_at),
+        exportPaymentIds: subset.map((p) => p.id),
         candidates,
         meta: null,
         customerName: group[0].recipient_name,
