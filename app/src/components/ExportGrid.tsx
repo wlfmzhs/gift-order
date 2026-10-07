@@ -6,6 +6,8 @@ import { updateOrderAction } from "@/lib/actions/admin";
 import { ignorePaymentsAction, linkPaymentsAction } from "@/lib/actions/payments";
 import {
   evaluateOrderRow,
+  isAcked,
+  notesSignature,
   rowState,
   type ExportRow,
   type RowState,
@@ -20,7 +22,8 @@ type EditableField =
   | "amount"
   | "birthday"
   | "shipDate"
-  | "etc";
+  | "etc"
+  | "notesAck";
 
 type Edits = Record<string, Partial<Record<EditableField, string>>>;
 
@@ -32,6 +35,7 @@ const ORDER_FIELD: Record<EditableField, string> = {
   birthday: "export_birthday",
   shipDate: "ship_date",
   etc: "export_etc",
+  notesAck: "notes_ack",
 };
 
 const STATE_STYLE: Record<RowState, { label: string; badge: string; row: string }> = {
@@ -108,7 +112,10 @@ export default function ExportGrid({ rows }: { rows: ExportRow[] }) {
         r.label,
         r.towelColor,
         r.embroideryColor,
-        evaluated(r).notes.join(", "),
+        (isAcked(val(r, "notesAck"), evaluated(r).notes) && r.kind === "order"
+          ? []
+          : evaluated(r).notes
+        ).join(", "),
       ]
         .map(sheetCell)
         .join("\t")
@@ -211,7 +218,9 @@ export default function ExportGrid({ rows }: { rows: ExportRow[] }) {
           <tbody>
             {rows.map((r) => {
               const { pairing, notes } = evaluated(r);
-              const st = STATE_STYLE[rowState(pairing, notes)];
+              const acked = isAcked(val(r, "notesAck"), notes) && r.kind === "order";
+              const activeNotes = acked ? [] : notes;
+              const st = STATE_STYLE[rowState(pairing, notes, acked)];
               const isOrder = r.kind === "order";
               return (
                 <tr
@@ -262,10 +271,27 @@ export default function ExportGrid({ rows }: { rows: ExportRow[] }) {
                   <td className="whitespace-nowrap px-2 py-1.5">{r.towelColor}</td>
                   <td className="whitespace-nowrap px-2 py-1.5">{r.embroideryColor}</td>
                   <td className="min-w-[12rem] max-w-[24rem] px-2 py-1.5">
-                    {notes.length > 0 && (
-                      <span className="font-medium text-red-600">{notes.join(", ")}</span>
+                    {activeNotes.length > 0 && (
+                      <span className="font-medium text-red-600">{activeNotes.join(", ")}</span>
                     )}
-                    <NoticeSms customerName={r.customerName} phone={r.phone} notes={notes} />
+                    {acked && (
+                      <span className="text-muted">✓ 확인완료: {notes.join(", ")}</span>
+                    )}
+                    {r.kind === "order" && notes.length > 0 && (
+                      <div className="mt-1">
+                        <button
+                          onClick={() => {
+                            const next = acked ? "" : notesSignature(notes);
+                            setCell(r, "notesAck", next);
+                            saveCell(r, "notesAck", next);
+                          }}
+                          className="rounded-full border border-border px-2.5 py-0.5 text-[11px] font-medium hover:border-brand"
+                        >
+                          {acked ? "확인 취소" : "확인완료"}
+                        </button>
+                      </div>
+                    )}
+                    <NoticeSms customerName={r.customerName} phone={r.phone} notes={activeNotes} />
                     {r.kind === "payment" && (
                       <button
                         onClick={() => handleIgnore(r)}

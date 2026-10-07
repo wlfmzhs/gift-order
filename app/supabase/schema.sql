@@ -44,7 +44,8 @@ create table if not exists orders (
   export_amount text not null default '',
   export_delivery_message text not null default '',
   export_birthday text not null default '',
-  export_etc text not null default ''
+  export_etc text not null default '',
+  notes_ack text not null default ''
 );
 
 create index if not exists orders_order_code_idx on orders (order_code);
@@ -85,4 +86,8 @@ notify pgrst, 'reload schema';
 
 -- 주문서의 "타올 구매 수량" 입력 기능에 필요합니다. orders 테이블을 이미 만들어 두었다면 아래 한 줄을 실행하세요.
 alter table orders add column if not exists towel_quantity integer;
+notify pgrst, 'reload schema';
+
+-- 시트 화면의 "확인완료" 표시 기능에 필요합니다. orders 테이블을 이미 만들어 두었다면 아래 한 줄을 실행하세요.
+alter table orders add column if not exists notes_ack text not null default '';
 notify pgrst, 'reload schema';

@@ -79,6 +79,7 @@ export type OrderPatch = Partial<
     | "export_delivery_message"
     | "export_birthday"
     | "export_etc"
+    | "notes_ack"
   >
 >;
 

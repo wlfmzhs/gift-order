@@ -87,6 +87,7 @@ export interface ExportRow {
   meta: OrderNoteMeta | null; // 주문서 행만
 
   customerName: string; // 안내 문자에 쓰는 받는분 성함
+  notesAck: string; // 확인완료한 확인사항 (주문서 줄만)
   recipient: string;
   phone: string;
   address: string;
@@ -209,6 +210,7 @@ export function buildExportRows(
       candidates: [],
       meta,
       customerName: o.recipient_name,
+      notesAck: o.notes_ack ?? "",
       recipient: o.export_recipient_display,
       phone: o.recipient_phone,
       address: `${o.recipient_address1} ${o.recipient_address2 ?? ""}`.trim(),
@@ -237,6 +239,7 @@ export function buildExportRows(
         candidates: [],
         meta: null,
         customerName: o.recipient_name,
+        notesAck: "",
         recipient: o.export_recipient_display,
         phone: o.recipient_phone,
         address: `${o.recipient_address1} ${o.recipient_address2 ?? ""}`.trim(),
@@ -307,6 +310,7 @@ export function buildExportRows(
         candidates,
         meta: null,
         customerName: group[0].recipient_name,
+        notesAck: "",
         recipient: group[0].recipient_name,
         phone: group[0].phone,
         address: "",
@@ -346,9 +350,20 @@ function sortExportRows(rows: ExportRow[], orders: OrderRecord[]): ExportRow[] {
   return withIndex.map((x) => x.r);
 }
 
+// 확인사항을 "확인완료"로 표시하면 그때의 확인사항 목록을 저장해 두고,
+// 목록이 그대로인 동안만 해결된 것으로 본다. (새 문제가 생기거나 내용이 바뀌면 다시 나타남)
+export function notesSignature(notes: string[]): string {
+  return notes.join("|");
+}
+
+export function isAcked(ack: string, notes: string[]): boolean {
+  return ack !== "" && notes.length > 0 && ack === notesSignature(notes);
+}
+
 export type RowState = "ok" | "check" | "unpaid" | "no-order";
 
-export function rowState(pairing: Pairing, notes: string[]): RowState {
+export function rowState(pairing: Pairing, notes: string[], acked = false): RowState {
+  if (acked) return "ok";
   if (pairing === "unpaid") return "unpaid";
   if (pairing === "no-order") return "no-order";
   return notes.length > 0 ? "check" : "ok";

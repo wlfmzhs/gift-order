@@ -43,6 +43,7 @@ export interface OrderRecord {
   export_delivery_message: string;
   export_birthday: string;
   export_etc: string;
+  notes_ack?: string; // 시트 화면에서 "확인완료"한 확인사항 (그때의 확인사항 목록을 | 로 이은 값)
 }
 
 export type NewOrderInput = Omit<

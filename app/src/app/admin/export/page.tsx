@@ -4,7 +4,7 @@ import ExportGrid from "@/components/ExportGrid";
 import ExportUpload from "@/components/ExportUpload";
 import NormalizeButton from "@/components/NormalizeButton";
 import { db, paymentsDb } from "@/lib/db";
-import { buildExportRows, rowState, type RowState } from "@/lib/exportRows";
+import { buildExportRows, isAcked, rowState, type ExportRow, type RowState } from "@/lib/exportRows";
 import { reconcilePayments } from "@/lib/reconcile";
 import type { OrderStatus, PaymentRecord } from "@/lib/types";
 
@@ -51,15 +51,17 @@ export default async function AdminExportPage({
     payments.filter((p) => !p.order_id || !shippedIds.has(p.order_id))
   );
 
+  const stateOf = (r: ExportRow) =>
+    rowState(r.pairing, r.notes, r.kind === "order" && isAcked(r.notesAck, r.notes));
   const counts: Record<RowState, number> = { ok: 0, check: 0, unpaid: 0, "no-order": 0 };
-  for (const r of allRows) counts[rowState(r.pairing, r.notes)]++;
+  for (const r of allRows) counts[stateOf(r)]++;
 
   const rows = allRows.filter((r) => {
     // 결제만 있는 행은 아직 접수 전이므로 "접수완료" 필터에는 포함하고 "발송완료"에는 뺀다.
     if (status && (r.orderStatus ?? "접수완료") !== status) return false;
     if (pkg === "trial" && !r.isTrial) return false;
     if (pkg === "regular" && r.isTrial) return false;
-    const state = rowState(r.pairing, r.notes);
+    const state = stateOf(r);
     if (match === "problem" && state === "ok") return false;
     if (match && match !== "problem" && state !== match) return false;
     return true;
