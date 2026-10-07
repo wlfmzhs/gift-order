@@ -24,6 +24,7 @@ export interface OrderNoteMeta {
   optionNotes: string[]; // 연결된 결제의 옵션 수량 문제
   excelAmount: number | null; // 연결된 결제들의 합계 금액
   samePhoneCount: number; // 같은 연락처의 주문서 수
+  sameNamePayments: number; // 연락처는 다르지만 이름이 같은, 주문서 없는 결제 수
 }
 
 export function evaluateOrderRow(
@@ -39,6 +40,11 @@ export function evaluateOrderRow(
   if (!paid) notes.push(NOTE_UNPAID);
   if (paid && item === "") notes.push("품목명 없음");
   notes.push(...towelQuantityNotes(itemValue));
+  if (!paid && meta.sameNamePayments > 0) {
+    notes.push(
+      `같은 이름 결제 ${meta.sameNamePayments}건 있음 (연락처 다름) - '결제O 주문서X' 줄에서 연결`
+    );
+  }
 
   if (meta.hasPayments) {
     // 품목명을 직접 고쳤다면 옵션 수량 문제는 이미 확인한 것으로 보고 다시 띄우지 않는다.
@@ -84,6 +90,11 @@ export interface ExportRow {
   label: string;
   towelColor: string;
   embroideryColor: string;
+}
+
+// 이름 비교용: 공백을 없애고 비교한다.
+function nameKey(name: string | null | undefined): string {
+  return String(name ?? "").replace(/\s+/g, "");
 }
 
 function clean(list: string[]): string[] {
@@ -132,6 +143,25 @@ export function buildExportRows(
     }
   }
 
+  // 연락처가 달라도 이름이 같으면 연결 후보로 제안한다. (자동 연결은 하지 않는다)
+  const unpaidOrdersByName = new Map<string, OrderRecord[]>();
+  for (const o of orders) {
+    if (o.export_item_name.trim() !== "" || o.export_amount.trim() !== "") continue;
+    const k = nameKey(o.recipient_name);
+    if (!k) continue;
+    const arr = unpaidOrdersByName.get(k) ?? [];
+    arr.push(o);
+    unpaidOrdersByName.set(k, arr);
+  }
+  const unlinkedGroupsByName = new Map<string, { phoneNorm: string }[]>();
+  for (const group of unlinkedByGroup.values()) {
+    const k = nameKey(group[0].recipient_name);
+    if (!k) continue;
+    const arr = unlinkedGroupsByName.get(k) ?? [];
+    arr.push({ phoneNorm: group[0].phone_norm });
+    unlinkedGroupsByName.set(k, arr);
+  }
+
   const rows: ExportRow[] = [];
 
   for (const o of orders) {
@@ -145,6 +175,9 @@ export function buildExportRows(
       optionNotes: merged.optionNotes,
       excelAmount: parseAmount(merged.amount),
       samePhoneCount,
+      sameNamePayments: (unlinkedGroupsByName.get(nameKey(o.recipient_name)) ?? []).filter(
+        (g) => g.phoneNorm !== phoneKey
+      ).length,
     };
     const { pairing, notes } = evaluateOrderRow(
       meta,
@@ -182,23 +215,37 @@ export function buildExportRows(
   for (const [groupKey, group] of unlinkedByGroup) {
     const merged = mergePayments(group);
     const phoneKey = group[0].phone_norm;
-    const candidates = (phoneKey ? ordersByPhone.get(phoneKey) ?? [] : []).map(
-      (o) => ({
+    const phoneOrders = phoneKey ? ordersByPhone.get(phoneKey) ?? [] : [];
+    const phoneOrderIds = new Set(phoneOrders.map((o) => o.id));
+    const nameOrders = (unpaidOrdersByName.get(nameKey(group[0].recipient_name)) ?? []).filter(
+      (o) => !phoneOrderIds.has(o.id)
+    );
+    const candidates = [
+      ...phoneOrders.map((o) => ({
         orderId: o.id,
         label: `${o.order_code} · ${o.recipient_name}${
           o.export_item_name.trim() ? " (품목명 있음)" : ""
         }`,
-      })
-    );
+      })),
+      ...nameOrders.map((o) => ({
+        orderId: o.id,
+        label: `${o.order_code} · ${o.recipient_name} (이름 같음, 연락처 ${o.recipient_phone})`,
+      })),
+    ];
 
     const notes = [
       NOTE_NO_ORDER,
       ...merged.optionNotes,
       ...towelQuantityNotes(merged.item),
     ];
-    if (candidates.length > 1) {
+    if (phoneOrders.length > 1) {
       notes.push(
-        `같은 연락처 주문서 ${candidates.length}건 - 연결할 주문서를 골라주세요`
+        `같은 연락처 주문서 ${phoneOrders.length}건 - 연결할 주문서를 골라주세요`
+      );
+    }
+    if (nameOrders.length > 0) {
+      notes.push(
+        `연락처는 다르지만 이름이 같은 주문서 ${nameOrders.length}건 있음 - 맞는지 확인하고 연결해주세요`
       );
     }
 
