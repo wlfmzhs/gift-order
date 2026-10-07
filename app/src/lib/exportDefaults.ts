@@ -27,16 +27,18 @@ export function computeExportDefaults(order: NewOrderInput): ExportDefaults {
     const bride = order.bride_name_kr ?? "";
     etc = groom || bride ? `${groom}/${bride} 신랑 신부` : "";
   } else {
-    inner = [order.mother_name ?? "", order.baby_name_kr ?? "", order.baby_name_en ?? ""]
-      .filter(Boolean)
-      .join(" ");
+    // A, E는 아이 이름(한글)만, B/C/D는 아이 이름 + 영문 이름
+    inner =
+      order.label_design === "A" || order.label_design === "E"
+        ? (order.baby_name_kr ?? "")
+        : [order.baby_name_kr ?? "", order.baby_name_en ?? ""].filter(Boolean).join(" ");
     etc =
       order.father_name || order.mother_name
         ? `${order.father_name ?? ""}/${order.mother_name ?? ""} 아빠 엄마`
         : "";
   }
 
-  // 받는분 성함을 맨 앞에: "임인순 (이채은 Lee Chae eun)"
+  // 받는분 성함을 맨 앞에: A/E "임인순 (이채은)", B/C/D "임인순 (이채은 Lee Chae eun)"
   const recipientDisplay = inner
     ? `${order.recipient_name} (${inner})`
     : order.recipient_name;
