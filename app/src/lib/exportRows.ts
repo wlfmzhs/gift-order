@@ -71,6 +71,7 @@ export interface ExportRow {
   candidates: LinkCandidate[]; // 결제 행에서 연결할 수 있는 같은 연락처 주문서
   meta: OrderNoteMeta | null; // 주문서 행만
 
+  customerName: string; // 안내 문자에 쓰는 받는분 성함
   recipient: string;
   phone: string;
   address: string;
@@ -162,6 +163,7 @@ export function buildExportRows(
       orderStatus: o.status,
       candidates: [],
       meta,
+      customerName: o.recipient_name,
       recipient: o.export_recipient_display,
       phone: o.recipient_phone,
       address: `${o.recipient_address1} ${o.recipient_address2 ?? ""}`.trim(),
@@ -211,6 +213,7 @@ export function buildExportRows(
       orderStatus: null,
       candidates,
       meta: null,
+      customerName: group[0].recipient_name,
       recipient: group[0].recipient_name,
       phone: group[0].phone,
       address: "",

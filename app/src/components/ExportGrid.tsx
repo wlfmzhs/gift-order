@@ -11,6 +11,7 @@ import {
   type RowState,
 } from "@/lib/exportRows";
 import { EXPORT_COLUMNS } from "@/lib/types";
+import NoticeSms from "./NoticeSms";
 
 type EditableField =
   | "recipient"
@@ -238,6 +239,7 @@ export default function ExportGrid({ rows }: { rows: ExportRow[] }) {
                     {notes.length > 0 && (
                       <span className="font-medium text-red-600">{notes.join(", ")}</span>
                     )}
+                    <NoticeSms customerName={r.customerName} phone={r.phone} notes={notes} />
                     {r.kind === "payment" && r.candidates.length > 0 && (
                       <div className="mt-1 flex items-center gap-1">
                         <select
