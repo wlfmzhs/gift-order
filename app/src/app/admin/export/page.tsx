@@ -41,7 +41,15 @@ export default async function AdminExportPage({
     payments = [];
   }
 
-  const allRows = buildExportRows(orders, payments);
+  // 송장이 등록된 주문은 이미 발송 처리된 것이므로 목록에서 뺀다.
+  // (결제도 함께 빼야 "결제O 주문서X"로 잘못 나타나지 않는다. 연결은 위에서 전체 주문 기준으로 끝난 상태.)
+  const shippedIds = new Set(
+    orders.filter((o) => (o.tracking_no ?? "").trim() !== "").map((o) => o.id)
+  );
+  const allRows = buildExportRows(
+    orders.filter((o) => !shippedIds.has(o.id)),
+    payments.filter((p) => !p.order_id || !shippedIds.has(p.order_id))
+  );
 
   const counts: Record<RowState, number> = { ok: 0, check: 0, unpaid: 0, "no-order": 0 };
   for (const r of allRows) counts[rowState(r.pairing, r.notes)]++;
@@ -101,7 +109,10 @@ export default async function AdminExportPage({
             <span className="rounded-full bg-orange-100 px-3 py-1 font-semibold text-orange-700">
               결제O 주문서X {counts["no-order"]}
             </span>
-            <span className="text-muted">총 {allRows.length}행</span>
+            <span className="text-muted">
+              총 {allRows.length}행
+              {shippedIds.size > 0 && ` · 송장 등록된 주문 ${shippedIds.size}건은 제외`}
+            </span>
           </div>
 
           <form className="mt-3 flex flex-wrap gap-2" method="get">
