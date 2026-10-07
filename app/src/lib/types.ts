@@ -23,6 +23,7 @@ export interface OrderRecord {
   bride_name_en: string | null;
 
   towel_color: string | null;
+  towel_quantity: number | null; // 주문서에 고객이 적은 타올 구매 수량 (타올 미포함이면 null)
   embroidery_color: string | null;
 
   recipient_name: string;

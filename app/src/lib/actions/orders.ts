@@ -4,6 +4,7 @@ import { toTitleCase } from "@/lib/titleCase";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { orderFormSchema, type OrderFormValues } from "@/lib/orderSchema";
+import { TOWEL_NONE } from "@/lib/towelRules";
 import type { NewOrderInput } from "@/lib/types";
 
 export interface CreateOrderResult {
@@ -39,6 +40,8 @@ export async function createOrderAction(
     bride_name_kr: v.bride_name_kr || null,
     bride_name_en: (v.bride_name_en && toTitleCase(v.bride_name_en.trim().replace(/\s+/g, " "))) || null,
     towel_color: v.towel_color,
+    towel_quantity:
+      v.towel_color !== TOWEL_NONE && v.towel_quantity ? Number(v.towel_quantity) : null,
     embroidery_color: v.embroidery_color,
     recipient_name: v.recipient_name,
     recipient_phone: v.recipient_phone,

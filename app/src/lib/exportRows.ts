@@ -1,4 +1,4 @@
-import { towelQuantityNotes } from "./itemName";
+import { towelQuantityFromItem, towelQuantityNotes } from "./itemName";
 import {
   TRIAL_KEYWORD,
   isTrialItem,
@@ -27,6 +27,7 @@ export interface OrderNoteMeta {
   optionNotes: string[]; // 연결된 결제의 옵션 수량 문제
   excelAmount: number | null; // 연결된 결제들의 합계 금액
   samePhoneCount: number; // 같은 연락처의 주문서 수
+  towelQuantity: number | null; // 주문서에 고객이 적은 타올 수량
   sameNamePayments: number; // 연락처는 다르지만 이름이 같은, 주문서 없는 결제 수
 }
 
@@ -43,6 +44,10 @@ export function evaluateOrderRow(
   if (!paid) notes.push(NOTE_UNPAID);
   if (paid && item === "") notes.push("품목명 없음");
   notes.push(...towelQuantityNotes(itemValue));
+  const paidTowelQty = towelQuantityFromItem(itemValue);
+  if (meta.towelQuantity !== null && paidTowelQty !== null && meta.towelQuantity !== paidTowelQty) {
+    notes.push(`타올 수량 불일치 (주문서 ${meta.towelQuantity}개 / 결제 ${paidTowelQty}개)`);
+  }
   if (!paid && meta.sameNamePayments > 0) {
     notes.push(
       `같은 이름 결제 ${meta.sameNamePayments}건 있음 (연락처 다름) - '결제O 주문서X' 줄에서 연결`
@@ -181,6 +186,7 @@ export function buildExportRows(
       optionNotes: merged.optionNotes,
       excelAmount: parseAmount(merged.amount),
       samePhoneCount,
+      towelQuantity: o.towel_quantity ?? null,
       sameNamePayments: (unlinkedGroupsByName.get(nameKey(o.recipient_name)) ?? []).filter(
         (g) => g.phoneNorm !== phoneKey
       ).length,

@@ -31,3 +31,24 @@ export function checkTowelForEventDate(
   }
   return { ok: true };
 }
+
+// 타올은 20개 이상, 10개 단위로만 제작할 수 있다.
+export const TOWEL_MIN_QTY = 20;
+export const TOWEL_QTY_STEP = 10;
+export const TOWEL_QTY_RULE_TEXT = "타올은 20개 이상, 10개 단위(20, 30, 40…)로만 주문하실 수 있어요.";
+
+export type TowelQtyCheck = { ok: true; qty: number } | { ok: false; message: string };
+
+export function checkTowelQuantity(raw: string | undefined | null): TowelQtyCheck {
+  const text = String(raw ?? "").trim();
+  if (text === "") return { ok: false, message: "타올 구매 수량을 입력해주세요." };
+  if (!/^\d+$/.test(text)) return { ok: false, message: "타올 수량은 숫자만 입력해주세요." };
+  const qty = Number(text);
+  if (qty < TOWEL_MIN_QTY || qty % TOWEL_QTY_STEP !== 0) {
+    return {
+      ok: false,
+      message: `${TOWEL_QTY_RULE_TEXT} 결제하신 수량(${qty}개)이 이 기준과 다르다면 카카오톡으로 먼저 문의해주세요.`,
+    };
+  }
+  return { ok: true, qty };
+}

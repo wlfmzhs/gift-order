@@ -59,6 +59,7 @@ export default async function AdminOrderDetailPage({
                   </>
                 )}
                 <Row label="타올 색상" value={order.towel_color} />
+                <Row label="타올 수량" value={order.towel_quantity ? `${order.towel_quantity}개` : null} />
                 <Row label="자수 색상" value={order.embroidery_color?.startsWith("해당없음") ? null : order.embroidery_color} />
               </div>
             </div>

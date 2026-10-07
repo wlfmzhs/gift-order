@@ -24,6 +24,7 @@ create table if not exists orders (
   bride_name_en text,
 
   towel_color text,
+  towel_quantity integer,
   embroidery_color text,
 
   recipient_name text not null,
@@ -80,4 +81,8 @@ alter table payments enable row level security;
 -- payments 테이블을 이미 만들어 두었다면(위 create 구문을 먼저 실행한 경우) 아래 한 줄만 추가로 실행하세요.
 -- 시트 내보내기 화면에서 결제 내역을 삭제(숨김)하는 기능에 필요합니다.
 alter table payments add column if not exists ignored boolean not null default false;
+notify pgrst, 'reload schema';
+
+-- 주문서의 "타올 구매 수량" 입력 기능에 필요합니다. orders 테이블을 이미 만들어 두었다면 아래 한 줄을 실행하세요.
+alter table orders add column if not exists towel_quantity integer;
 notify pgrst, 'reload schema';

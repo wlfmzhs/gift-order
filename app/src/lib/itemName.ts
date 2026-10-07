@@ -85,3 +85,13 @@ export function towelQuantityNotes(itemName: string): string[] {
   }
   return Array.from(new Set(notes));
 }
+
+/** 품목명에서 타올 상품의 수량을 읽는다. ("[3종]핸드솝+타올_30개" → 30) 없으면 null */
+export function towelQuantityFromItem(itemName: string): number | null {
+  for (const part of itemName.split(" + ")) {
+    if (!part.includes("타올")) continue;
+    const m = part.match(/_(\d+)개$/);
+    if (m) return Number(m[1]);
+  }
+  return null;
+}

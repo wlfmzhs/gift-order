@@ -1,6 +1,12 @@
 import { z } from "zod";
 import { getFieldRequirements } from "./orderRules";
-import { EVENT_MAX_DATE, EVENT_MIN_DATE, checkTowelForEventDate } from "./towelRules";
+import {
+  EVENT_MAX_DATE,
+  EVENT_MIN_DATE,
+  TOWEL_NONE,
+  checkTowelForEventDate,
+  checkTowelQuantity,
+} from "./towelRules";
 
 const PHONE_REGEX = /^01[016789]-\d{3,4}-\d{4}$/;
 
@@ -21,6 +27,7 @@ export const orderFormSchema = z
     bride_name_en: z.string().optional(),
 
     towel_color: z.string().min(1, "타올 색상을 입력해주세요."),
+    towel_quantity: z.string().optional(),
     embroidery_color: z.string().min(1, "자수 색상을 입력해주세요."),
 
     recipient_name: z.string().min(1, "받는분 성함을 입력해주세요."),
@@ -49,6 +56,17 @@ export const orderFormSchema = z
         path: ["towel_color"],
         message: towelCheck.message,
       });
+    }
+
+    if (data.towel_color && data.towel_color !== TOWEL_NONE) {
+      const qtyCheck = checkTowelQuantity(data.towel_quantity);
+      if (!qtyCheck.ok) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["towel_quantity"],
+          message: qtyCheck.message,
+        });
+      }
     }
 
     if (req.isWedding) {

@@ -266,6 +266,9 @@ function ReviewStep({
               {data.towel_color}
             </span>
           </div>
+          {data.towel_color !== TOWEL_NONE && (
+            <ReviewRow label="타올 수량" value={data.towel_quantity ? `${data.towel_quantity}개` : ""} />
+          )}
           <div className="flex justify-between gap-4 border-b border-border py-2 text-sm last:border-0">
             <span className="text-muted">자수 색상</span>
             <span className="flex items-center gap-2 font-medium">
@@ -347,6 +350,7 @@ export default function OrderForm() {
       recipient_address1: "",
       recipient_phone: "",
       towel_color: "",
+      towel_quantity: "",
       embroidery_color: "",
     },
   });
@@ -405,6 +409,7 @@ export default function OrderForm() {
       recipient_address1: "",
       recipient_phone: "",
       towel_color: "",
+      towel_quantity: "",
       embroidery_color: "",
     });
     setDraftRestored(false);
@@ -445,6 +450,7 @@ export default function OrderForm() {
   useEffect(() => {
     if (!towelIncluded) {
       setValue("embroidery_color", EMBROIDERY_NONE);
+      setValue("towel_quantity", "");
     } else if (getValues("embroidery_color") === EMBROIDERY_NONE) {
       setValue("embroidery_color", "");
     }
@@ -783,6 +789,9 @@ export default function OrderForm() {
               타올 구성품을 구매하지 않으셨다면 &ldquo;미포함&rdquo;을
               선택해주세요.
             </p>
+            <p className="mt-1 text-xs font-semibold text-red-700">
+              ⚠ 타올은 20개 이상, 10개 단위로만 주문하실 수 있어요.
+            </p>
             <Controller
               control={control}
               name="towel_color"
@@ -801,6 +810,30 @@ export default function OrderForm() {
               <p className={errorClass}>{errors.towel_color.message}</p>
             )}
           </div>
+
+          {towelIncluded && towelColor && (
+            <div className="rounded-xl border-2 border-red-300 bg-red-50 p-4">
+              <label className={labelClass}>
+                타올 구매 수량 <span className="font-normal text-muted">(개)</span>
+              </label>
+              <p className="mt-1 text-sm font-semibold text-red-700">
+                ⚠ 타올은 20개 이상, 10개 단위(20, 30, 40…)로만 주문하실 수 있어요.
+              </p>
+              <p className="mt-1 text-xs text-red-700">
+                홈페이지에서 결제하신 수량을 그대로 입력해주세요. 기준과 다르면 제작이 어려워
+                주문 확인이 늦어질 수 있어요.
+              </p>
+              <input
+                inputMode="numeric"
+                placeholder="예: 30"
+                className={`${inputClass} mt-2 max-w-[10rem]`}
+                {...register("towel_quantity")}
+              />
+              {errors.towel_quantity && (
+                <p className={errorClass}>{errors.towel_quantity.message}</p>
+              )}
+            </div>
+          )}
 
           {towelIncluded ? (
             <div>

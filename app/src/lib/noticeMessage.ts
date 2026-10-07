@@ -42,6 +42,12 @@ export function buildNoticeMessage(
         `타올은 20개부터 제작할 수 있어요. 현재 ${tooFew[1]}개로 주문하셨는데, 수량 조정이 필요해요. 원하시는 수량을 알려주세요.`
       );
     }
+    const mismatch = note.match(/^타올 수량 불일치 \(주문서 (\d+)개 \/ 결제 (\d+)개\)/);
+    if (mismatch) {
+      parts.push(
+        `주문서에 적어주신 타올 수량(${mismatch[1]}개)과 결제하신 수량(${mismatch[2]}개)이 달라요. 어느 쪽이 맞는지 알려주세요.`
+      );
+    }
     const option = note.match(/^옵션 수량 X \((.+) 옵션\/(\d+)개 구매\)/);
     if (option) {
       parts.push(

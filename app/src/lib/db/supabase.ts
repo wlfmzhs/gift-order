@@ -53,13 +53,22 @@ export const supabaseOrdersDB: OrdersDB = {
       export_etc: defaults.export_etc,
     };
 
+    // towel_quantity 칸을 아직 DB에 추가하지 않았어도 주문 접수가 막히지 않도록,
+    // 그 칸 때문에 실패하면 칸을 빼고 다시 저장한다.
+    let withQuantity = true;
     for (let attempt = 0; ; attempt++) {
+      const row: Record<string, unknown> = { ...base, order_code: generateOrderCode() };
+      if (!withQuantity) delete row.towel_quantity;
       const { data, error } = await getClient()
         .from(TABLE)
-        .insert({ ...base, order_code: generateOrderCode() })
+        .insert(row)
         .select()
         .single();
       if (!error) return data as OrderRecord;
+      if (withQuantity && error.message.includes("towel_quantity")) {
+        withQuantity = false;
+        continue;
+      }
       const isCodeCollision =
         error.code === "23505" && error.message.includes("order_code");
       if (!isCodeCollision || attempt >= MAX_CODE_RETRIES) {
