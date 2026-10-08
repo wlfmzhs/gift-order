@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
-import { updateOrderAction, type OrderPatch } from "@/lib/actions/admin";
+import { deleteOrderAction, updateOrderAction, type OrderPatch } from "@/lib/actions/admin";
 import { setExportedAction } from "@/lib/actions/exportStatus";
 import {
   ignorePaymentsAction,
@@ -272,6 +272,28 @@ export default function ExportGrid({ rows, done }: { rows: ExportRow[]; done: bo
     });
   };
 
+  // 결제가 하나도 없는 주문서(결제X 주문서O)를 삭제한다. 되돌릴 수 없다.
+  const handleDeleteOrder = (r: ExportRow) => {
+    if (!r.orderId) return;
+    if (
+      !window.confirm(
+        `${r.customerName} (${r.phone}) 주문서를 삭제할까요?
+삭제하면 되돌릴 수 없어요.`
+      )
+    ) {
+      return;
+    }
+    startTransition(async () => {
+      const result = await deleteOrderAction(r.orderId as string);
+      if (!result.ok) {
+        setSaveError(result.message ?? "삭제에 실패했어요.");
+        return;
+      }
+      setSaveError(null);
+      router.refresh();
+    });
+  };
+
   const handleIgnore = (r: ExportRow) => {
     if (
       !window.confirm(
@@ -480,6 +502,15 @@ export default function ExportGrid({ rows, done }: { rows: ExportRow[]; done: bo
                         className="mt-1 rounded-full border border-red-200 px-2.5 py-0.5 text-[11px] font-medium text-red-600 hover:bg-red-50 disabled:opacity-40"
                       >
                         삭제
+                      </button>
+                    )}
+                    {r.kind === "order" && pairing === "unpaid" && r.paymentIds.length === 0 && (
+                      <button
+                        onClick={() => handleDeleteOrder(r)}
+                        disabled={isPending}
+                        className="mt-1 rounded-full border border-red-200 px-2.5 py-0.5 text-[11px] font-medium text-red-600 hover:bg-red-50 disabled:opacity-40"
+                      >
+                        주문서 삭제
                       </button>
                     )}
                     {r.kind === "payment" && r.candidates.length > 0 && (
