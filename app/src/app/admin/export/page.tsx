@@ -125,12 +125,19 @@ export default async function AdminExportPage({
           </div>
 
           {!isDone && (
-            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+            <div className="mt-4 space-y-3">
               <ExportUpload />
-              <NormalizeButton />
-              <ExportedPaste />
-              <IgnoredPayments payments={ignoredPayments} />
-              <DiagnosePhone />
+              <details className="rounded-2xl border border-border bg-surface px-4 py-3">
+                <summary className="cursor-pointer text-sm font-semibold text-muted">
+                  관리 도구 (가끔 쓰는 기능)
+                </summary>
+                <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                  <DiagnosePhone />
+                  <IgnoredPayments payments={ignoredPayments} />
+                  <ExportedPaste />
+                  <NormalizeButton />
+                </div>
+              </details>
             </div>
           )}
 
