@@ -4,6 +4,9 @@
 // (타올 수량 검사는 품목명만 있으면 되므로 towelQuantityNotes에서 따로 한다.)
 const TRIAL_PREFIX = "[체험]";
 
+// 엑셀의 추가 옵션이 "세면타올선택: 세면타올"이면 품목명 맨 끝에 붙이는 표시
+export const TOWEL_PICK_MARK = "★세면타올";
+
 // "패키지 수량 선택: 24. " 같은 앞부분 제거
 function stripOptionPrefix(raw: string): string {
   return raw
@@ -83,7 +86,7 @@ export function towelQuantityNotes(itemName: string): string[] {
   const notes: string[] = [];
   for (const part of itemName.split(" + ")) {
     if (!part.includes("타올")) continue;
-    const m = part.match(/_(\d+)개$/);
+    const m = part.match(/_(\d+)개(?:★세면타올)?$/);
     if (!m) continue;
     const qty = Number(m[1]);
     if (qty < 20) notes.push(`타올 20개 미만 (${qty}개)`);
@@ -96,7 +99,7 @@ export function towelQuantityNotes(itemName: string): string[] {
 export function towelQuantityFromItem(itemName: string): number | null {
   for (const part of itemName.split(" + ")) {
     if (!part.includes("타올")) continue;
-    const m = part.match(/_(\d+)개$/);
+    const m = part.match(/_(\d+)개(?:★세면타올)?$/);
     if (m) return Number(m[1]);
   }
   return null;

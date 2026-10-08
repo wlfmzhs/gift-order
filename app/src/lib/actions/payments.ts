@@ -3,7 +3,7 @@
 import * as XLSX from "xlsx";
 import { requireAdmin } from "@/lib/adminSession";
 import { db, paymentsDb } from "@/lib/db";
-import { formatItemName } from "@/lib/itemName";
+import { TOWEL_PICK_MARK, formatItemName } from "@/lib/itemName";
 import { normalizePhone } from "@/lib/phone";
 import { linkPaymentsToOrder } from "@/lib/reconcile";
 import type { NewPaymentInput } from "@/lib/types";
@@ -17,6 +17,7 @@ const HEADER_ALIASES: Record<string, string[]> = {
   status: ["상품별 주문 상태", "주문상태"],
   delivery_message: ["배송 메모", "배송메세지", "배송메모"],
   order_no: ["주문번호", "상품주문번호", "주문 번호"],
+  extra_option: ["추가 옵션 정보", "추가옵션정보", "추가 옵션"],
 };
 
 const CANCELLED_KEYWORDS = ["취소", "환불", "반품"];
@@ -90,6 +91,7 @@ export async function importPaymentsAction(
     status: findHeaderIndex(headerRow, HEADER_ALIASES.status),
     delivery_message: findHeaderIndex(headerRow, HEADER_ALIASES.delivery_message),
     order_no: findHeaderIndex(headerRow, HEADER_ALIASES.order_no),
+    extra_option: findHeaderIndex(headerRow, HEADER_ALIASES.extra_option),
   };
 
   if (col.recipient_name === -1 || col.phone === -1) {
@@ -135,6 +137,13 @@ export async function importPaymentsAction(
       deliveryMessage,
     ].join("|");
 
+    // 같은 결제를 가리키는 키는 별표를 붙이기 전 품목명으로 만든다. (엑셀 열이 늘어도 중복 저장되지 않게)
+    const towelPick = /세면타올선택\s*:\s*세면타올/.test(cell(line, col.extra_option));
+    const itemNameForSheet =
+      towelPick && item.name && !item.name.endsWith(TOWEL_PICK_MARK)
+        ? `${item.name}${TOWEL_PICK_MARK}`
+        : item.name;
+
     const status = cell(line, col.status);
     if (CANCELLED_KEYWORDS.some((kw) => status.includes(kw))) {
       cancelledSkipped++;
@@ -151,7 +160,7 @@ export async function importPaymentsAction(
       recipient_name: recipientName,
       phone,
       phone_norm: phoneNorm,
-      item_name: item.name,
+      item_name: itemNameForSheet,
       amount,
       delivery_message: deliveryMessage,
       option_note: item.optionNote,
@@ -178,6 +187,24 @@ export async function importPaymentsAction(
           })
         )
       );
+    }
+
+    // 이미 저장된 결제의 품목명이 달라졌으면(예: 세면타올 표시가 새로 붙음) 바꿔 주고, 연결된 주문서의 품목명에도 반영한다.
+    const stored = new Map((await paymentsDb.list()).map((p) => [p.dedupe_key, p]));
+    for (const [key, next] of active) {
+      const prev = stored.get(key);
+      // 표시를 새로 붙이는 경우만 바꾼다. (표시 없는 예전 엑셀을 다시 올려도 표시가 지워지지 않게)
+      if (!prev || prev.item_name === next.item_name) continue;
+      if (!next.item_name.endsWith(TOWEL_PICK_MARK) || prev.item_name.endsWith(TOWEL_PICK_MARK)) continue;
+      await paymentsDb.update(prev.id, { item_name: next.item_name });
+      if (prev.order_id && prev.item_name) {
+        const order = await db.getById(prev.order_id);
+        if (order && order.export_item_name.includes(prev.item_name)) {
+          await db.update(order.id, {
+            export_item_name: order.export_item_name.replace(prev.item_name, next.item_name),
+          });
+        }
+      }
     }
 
     const inserted = await paymentsDb.insertMany(Array.from(active.values()));
