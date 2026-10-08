@@ -2,7 +2,7 @@ import { createHash } from "crypto";
 import Link from "next/link";
 import AdminHeader from "@/components/AdminHeader";
 import ExportGrid from "@/components/ExportGrid";
-import DiagnosePhone from "@/components/DiagnosePhone";
+import MoveSuggestions, { type MoveSuggestion } from "@/components/MoveSuggestions";
 import IgnoredPayments from "@/components/IgnoredPayments";
 import ExportedPaste from "@/components/ExportedPaste";
 import ExportUpload from "@/components/ExportUpload";
@@ -10,6 +10,8 @@ import NormalizeButton from "@/components/NormalizeButton";
 import { db, paymentsDb } from "@/lib/db";
 import { buildExportRows, isAcked, rowState, type ExportRow, type RowState } from "@/lib/exportRows";
 import { reconcilePayments } from "@/lib/reconcile";
+import { normalizePhone } from "@/lib/phone";
+import { isTrialItem } from "@/lib/paymentMerge";
 import type { OrderStatus, PaymentRecord } from "@/lib/types";
 
 const STATUS_OPTIONS: OrderStatus[] = ["접수완료", "발송완료"];
@@ -54,6 +56,37 @@ export default async function AdminExportPage({
   const shippedIds = new Set(
     orders.filter((o) => (o.tracking_no ?? "").trim() !== "").map((o) => o.id)
   );
+  // 결제가 없는 새 주문서와 같은 연락처의, 송장 등록된 예전 주문서에 결제가 붙어 있으면 옮기자고 제안한다.
+  const orderById = new Map(orders.map((o) => [o.id, o]));
+  const moveSuggestions: MoveSuggestion[] = [];
+  for (const o of orders) {
+    if (shippedIds.has(o.id)) continue;
+    if (o.export_item_name.trim() !== "" || o.export_amount.trim() !== "") continue;
+    if (payments.some((p) => p.order_id === o.id)) continue;
+    const key = normalizePhone(o.recipient_phone);
+    if (!key) continue;
+    const found = payments.filter((p) => {
+      if (p.phone_norm !== key || !p.order_id || p.order_id === o.id) return false;
+      return shippedIds.has(p.order_id);
+    });
+    if (found.length === 0) continue;
+    // 체험이 아닌 결제를 먼저 보여준다.
+    found.sort((a, b) => Number(isTrialItem(a.item_name)) - Number(isTrialItem(b.item_name)));
+    moveSuggestions.push({
+      orderId: o.id,
+      orderCode: o.order_code,
+      name: o.recipient_name,
+      phone: o.recipient_phone,
+      fromCode: Array.from(
+        new Set(found.map((p) => orderById.get(p.order_id as string)?.order_code ?? ""))
+      ).join(", "),
+      payments: found.map((p) => ({
+        id: p.id,
+        label: `${p.item_name || "(품목명 없음)"} · ${p.amount ? `${p.amount}원` : "금액 없음"}`,
+      })),
+    });
+  }
+
   const everyRow = buildExportRows(
     orders.filter((o) => !shippedIds.has(o.id)),
     payments.filter((p) => !p.order_id || !shippedIds.has(p.order_id))
@@ -124,6 +157,8 @@ export default async function AdminExportPage({
             })}
           </div>
 
+          {!isDone && <MoveSuggestions suggestions={moveSuggestions} />}
+
           {!isDone && (
             <div className="mt-4 space-y-3">
               <ExportUpload />
@@ -132,7 +167,6 @@ export default async function AdminExportPage({
                   관리 도구 (가끔 쓰는 기능)
                 </summary>
                 <div className="mt-3 grid gap-3 lg:grid-cols-2">
-                  <DiagnosePhone />
                   <IgnoredPayments payments={ignoredPayments} />
                   <ExportedPaste />
                   <NormalizeButton />

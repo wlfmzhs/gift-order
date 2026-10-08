@@ -296,3 +296,24 @@ export async function restorePaymentAction(
     };
   }
 }
+
+/** 결제를 다른 주문서로 옮긴다. (이미 다른 주문서에 연결돼 있어도 된다) */
+export async function movePaymentAction(
+  paymentId: string,
+  targetOrderId: string
+): Promise<{ ok: boolean; message?: string }> {
+  try {
+    await requireAdmin();
+    const [order, payments] = await Promise.all([db.getById(targetOrderId), paymentsDb.list()]);
+    if (!order) return { ok: false, message: "옮길 주문서를 찾을 수 없습니다." };
+    const payment = payments.find((p) => p.id === paymentId);
+    if (!payment) return { ok: false, message: "결제 내역을 찾을 수 없습니다." };
+    await linkPaymentsToOrder(order, [payment], payments);
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : "옮기는 중 오류가 발생했습니다.",
+    };
+  }
+}
