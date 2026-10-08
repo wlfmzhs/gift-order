@@ -24,7 +24,7 @@ export default function MoveSuggestions({ suggestions }: { suggestions: MoveSugg
     startTransition(async () => {
       const res = await movePaymentAction(paymentId, orderId);
       if (!res.ok) {
-        setError(res.message ?? "옮기기에 실패했어요.");
+        setError(res.message ?? "반영에 실패했어요.");
         return;
       }
       setError(null);
@@ -38,7 +38,7 @@ export default function MoveSuggestions({ suggestions }: { suggestions: MoveSugg
       </p>
       <p className="mt-1 text-xs text-amber-900/80">
         같은 연락처의 새 주문서에는 결제가 없고, 결제는 송장이 등록된 예전 주문서에 붙어 있어요.
-        새 주문서에 해당하는 결제만 골라서 옮겨주세요. (체험 패키지처럼 예전 주문서의 결제는 그대로
+        새 주문서에 해당하는 결제만 골라서 반영해주세요. (체험 패키지처럼 예전 주문서의 결제는 그대로
         두세요)
       </p>
       {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
@@ -57,7 +57,7 @@ export default function MoveSuggestions({ suggestions }: { suggestions: MoveSugg
                     disabled={isPending}
                     className="shrink-0 rounded-full bg-brand px-3 py-1 text-[11px] font-medium text-white hover:bg-brand-dark disabled:opacity-40"
                   >
-                    {s.orderCode}로 옮기기
+                    이 주문으로 반영하기
                   </button>
                 </li>
               ))}
