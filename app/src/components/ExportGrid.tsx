@@ -205,14 +205,14 @@ export default function ExportGrid({ rows, done }: { rows: ExportRow[]; done: bo
   const handleIgnore = (r: ExportRow) => {
     if (
       !window.confirm(
-        `${r.recipient} (${r.phone}) 결제 내역을 목록에서 삭제할까요?
+        `${r.recipient} (${r.phone}) ${r.kind === "trial" ? "체험 패키지 줄" : "결제 내역"}을 목록에서 삭제할까요?
 같은 엑셀을 다시 올려도 다시 나타나지 않아요.`
       )
     ) {
       return;
     }
     startTransition(async () => {
-      const result = await ignorePaymentsAction(r.paymentIds);
+      const result = await ignorePaymentsAction(r.exportPaymentIds, r.kind === "trial");
       if (!result.ok) {
         setSaveError(result.message ?? "삭제에 실패했어요.");
         return;
@@ -397,7 +397,7 @@ export default function ExportGrid({ rows, done }: { rows: ExportRow[]; done: bo
                       </div>
                     )}
                     <NoticeSms customerName={r.customerName} phone={r.phone} notes={activeNotes} />
-                    {r.kind === "payment" && (
+                    {(r.kind === "payment" || r.kind === "trial") && (
                       <button
                         onClick={() => handleIgnore(r)}
                         disabled={isPending}

@@ -207,7 +207,8 @@ export async function importPaymentsAction(
  * 기록은 지우지 않고 숨김 표시만 해서, 같은 엑셀을 다시 올려도 되살아나지 않는다.
  */
 export async function ignorePaymentsAction(
-  paymentIds: string[]
+  paymentIds: string[],
+  allowLinked = false // 주문서에 연결된 체험 패키지 줄을 지울 때만 true
 ): Promise<{ ok: boolean; message?: string }> {
   try {
     await requireAdmin();
@@ -215,7 +216,7 @@ export async function ignorePaymentsAction(
     const ids = new Set(paymentIds);
     const targets = payments.filter((p) => ids.has(p.id));
     if (targets.length === 0) return { ok: false, message: "삭제할 결제 내역을 찾을 수 없습니다." };
-    if (targets.some((p) => p.order_id)) {
+    if (!allowLinked && targets.some((p) => p.order_id)) {
       return { ok: false, message: "이미 주문서에 연결된 결제는 삭제할 수 없습니다." };
     }
     for (const p of targets) await paymentsDb.update(p.id, { ignored: true });
