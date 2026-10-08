@@ -174,6 +174,14 @@ export function buildExportRows(
     unlinkedGroupsByName.set(k, arr);
   }
 
+  // 결제가 하나도 붙지 않았고 품목명·금액도 비어 있는 주문서 (최근 접수순)
+  const unpaidOrders = orders
+    .filter(
+      (o) =>
+        !linked.has(o.id) && o.export_item_name.trim() === "" && o.export_amount.trim() === ""
+    )
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+
   const rows: ExportRow[] = [];
 
   for (const o of orders) {
@@ -269,6 +277,10 @@ export function buildExportRows(
     const nameOrders = (unpaidOrdersByName.get(nameKey(group[0].recipient_name)) ?? []).filter(
       (o) => !phoneOrderIds.has(o.id)
     );
+    // 이름·연락처가 모두 달라도(결제자와 주문서 작성자가 다른 경우) 직접 고를 수 있도록,
+    // 아직 결제가 붙지 않은 나머지 주문서도 후보로 보여준다.
+    const shown = new Set([...phoneOrders, ...nameOrders].map((o) => o.id));
+    const otherUnpaid = unpaidOrders.filter((o) => !shown.has(o.id));
     const candidates = [
       ...phoneOrders.map((o) => ({
         orderId: o.id,
@@ -279,6 +291,10 @@ export function buildExportRows(
       ...nameOrders.map((o) => ({
         orderId: o.id,
         label: `${o.order_code} · ${o.recipient_name} (이름 같음, 연락처 ${o.recipient_phone})`,
+      })),
+      ...otherUnpaid.map((o) => ({
+        orderId: o.id,
+        label: `${o.order_code} · ${o.recipient_name} (연락처 ${o.recipient_phone}) - 결제 없는 주문서`,
       })),
     ];
 
