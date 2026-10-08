@@ -63,9 +63,12 @@ export async function reconcilePayments(
     linkedByOrder.set(p.order_id, arr);
   }
   for (const [orderId, list] of linkedByOrder) {
-    if (!partitionPayments(list).split) continue;
     const order = orderById.get(orderId);
-    if (order) await syncOrderFromPayments(order, list, list);
+    if (!order) continue;
+    // 결제는 연결돼 있는데 주문서의 품목명·금액이 모두 비어 있으면(연결 뒤에 값이 지워진 경우 등) 다시 채운다.
+    const emptied = order.export_item_name.trim() === "" && order.export_amount.trim() === "";
+    if (!emptied && !partitionPayments(list).split) continue;
+    await syncOrderFromPayments(order, list, list);
   }
 
   return { orders: orderList, payments: paymentList };
