@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import Link from "next/link";
 import AdminHeader from "@/components/AdminHeader";
 import ExportGrid from "@/components/ExportGrid";
+import DiagnosePhone from "@/components/DiagnosePhone";
 import IgnoredPayments from "@/components/IgnoredPayments";
 import ExportedPaste from "@/components/ExportedPaste";
 import ExportUpload from "@/components/ExportUpload";
@@ -129,6 +130,7 @@ export default async function AdminExportPage({
               <NormalizeButton />
               <ExportedPaste />
               <IgnoredPayments payments={ignoredPayments} />
+              <DiagnosePhone />
             </div>
           )}
 
