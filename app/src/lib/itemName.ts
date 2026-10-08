@@ -26,11 +26,17 @@ export function cleanSavedItemName(value: string): { name: string; stillRaw: boo
   return { name, stillRaw };
 }
 
+// 홈페이지에서 옵션이 늘어나면 "패키지 수량 선택: 19. [3종] ..._20~49개 / 세면타올선택: ..." 처럼
+// " / 항목: 값"이 뒤에 붙는다. 품목명에는 첫 번째 옵션(패키지)만 쓴다.
+function dropExtraOptions(raw: string): string {
+  return raw.replace(/\s+\/\s+[^:\/]+:[\s\S]*$/, "");
+}
+
 export function formatItemName(
   rawOption: string,
   rawQuantity: string
 ): { name: string; optionNote: string } {
-  let name = stripOptionPrefix(rawOption);
+  let name = stripOptionPrefix(dropExtraOptions(rawOption));
 
   // 체험 패키지는 수량 없이 "[체험] 2종 핸드솝+주방세제" 형태로 둔다.
   if (name.startsWith(TRIAL_PREFIX)) {
