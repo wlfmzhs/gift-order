@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
-import { updateOrderAction } from "@/lib/actions/admin";
+import { updateOrderAction, type OrderPatch } from "@/lib/actions/admin";
 import { setExportedAction } from "@/lib/actions/exportStatus";
 import { ignorePaymentsAction, linkPaymentsAction } from "@/lib/actions/payments";
 import {
@@ -13,8 +13,12 @@ import {
   type ExportRow,
   type RowState,
 } from "@/lib/exportRows";
-import { EXPORT_COLUMNS } from "@/lib/types";
+import { EXPORT_COLUMNS, type LabelDesign } from "@/lib/types";
+import { TOWEL_NONE } from "@/lib/towelRules";
 import NoticeSms from "./NoticeSms";
+
+const EMBROIDERY_NONE = "해당없음 (타올 미포함)";
+const LABELS = ["A", "B", "C", "D", "E", "F"];
 
 type EditableField =
   | "recipient"
@@ -24,20 +28,46 @@ type EditableField =
   | "birthday"
   | "shipDate"
   | "etc"
-  | "notesAck";
+  | "notesAck"
+  | "phone"
+  | "address"
+  | "label"
+  | "towelColor"
+  | "embroideryColor";
 
 type Edits = Record<string, Partial<Record<EditableField, string>>>;
 
-const ORDER_FIELD: Record<EditableField, string> = {
-  recipient: "export_recipient_display",
-  item: "export_item_name",
-  message: "export_delivery_message",
-  amount: "export_amount",
-  birthday: "export_birthday",
-  shipDate: "ship_date",
-  etc: "export_etc",
-  notesAck: "notes_ack",
-};
+// 칸을 고쳤을 때 주문서에 저장할 값. 시트의 빈칸은 주문서에서는 "미포함/해당없음"으로 저장한다.
+function patchFor(f: EditableField, value: string): OrderPatch {
+  switch (f) {
+    case "recipient":
+      return { export_recipient_display: value };
+    case "item":
+      return { export_item_name: value };
+    case "message":
+      return { export_delivery_message: value };
+    case "amount":
+      return { export_amount: value };
+    case "birthday":
+      return { export_birthday: value };
+    case "shipDate":
+      return { ship_date: value || null };
+    case "etc":
+      return { export_etc: value };
+    case "notesAck":
+      return { notes_ack: value };
+    case "phone":
+      return { recipient_phone: value };
+    case "address":
+      return { recipient_address1: value, recipient_address2: "" };
+    case "label":
+      return { label_design: value as LabelDesign };
+    case "towelColor":
+      return { towel_color: value.trim() || TOWEL_NONE };
+    case "embroideryColor":
+      return { embroidery_color: value.trim() || EMBROIDERY_NONE };
+  }
+}
 
 const STATE_STYLE: Record<RowState, { label: string; badge: string; row: string }> = {
   ok: { label: "정상", badge: "bg-green-100 text-green-700", row: "" },
@@ -77,10 +107,11 @@ export default function ExportGrid({ rows, done }: { rows: ExportRow[]; done: bo
     const last = savedRef.current[savedKey] ?? r[f];
     if (value === last) return;
 
-    const field = ORDER_FIELD[f];
-    const result = await updateOrderAction(r.orderId, {
-      [field]: f === "shipDate" ? value || null : value,
-    });
+    if (f === "label" && !LABELS.includes(value)) {
+      setSaveError("라벨타입은 A~F 중 하나로 입력해주세요.");
+      return;
+    }
+    const result = await updateOrderAction(r.orderId, patchFor(f, value));
     if (!result.ok) {
       setSaveError(
         `저장에 실패했어요${result.message ? `: ${result.message}` : ""} — 새로고침 후 다시 시도해주세요.`
@@ -116,17 +147,17 @@ export default function ExportGrid({ rows, done }: { rows: ExportRow[]; done: bo
     const lines = target.map((r) =>
       [
         val(r, "recipient"),
-        r.phone,
-        r.address,
+        val(r, "phone"),
+        val(r, "address"),
         val(r, "item"),
         val(r, "message"),
         val(r, "amount"),
         val(r, "birthday"),
         val(r, "shipDate"),
         val(r, "etc"),
-        r.label,
-        r.towelColor,
-        r.embroideryColor,
+        val(r, "label"),
+        val(r, "towelColor"),
+        val(r, "embroideryColor"),
         (isAcked(val(r, "notesAck"), evaluated(r).notes) && r.kind === "order"
           ? []
           : evaluated(r).notes
@@ -347,8 +378,12 @@ export default function ExportGrid({ rows, done }: { rows: ExportRow[]; done: bo
                   <td className="px-1 py-1">
                     {isOrder ? textInput(r, "recipient") : <span className="px-1">{r.recipient}</span>}
                   </td>
-                  <td className="whitespace-nowrap px-2 py-1.5">{r.phone}</td>
-                  <td className="min-w-[14rem] max-w-[22rem] px-2 py-1.5">{r.address}</td>
+                  <td className="px-1 py-1">
+                    {isOrder ? textInput(r, "phone") : <span className="whitespace-nowrap px-1">{r.phone}</span>}
+                  </td>
+                  <td className="min-w-[14rem] max-w-[22rem] px-1 py-1">
+                    {isOrder ? textArea(r, "address") : <span className="px-1">{r.address}</span>}
+                  </td>
                   <td className="px-1 py-1">
                     {isOrder ? textArea(r, "item") : <span className="px-1">{r.item}</span>}
                   </td>
@@ -372,9 +407,11 @@ export default function ExportGrid({ rows, done }: { rows: ExportRow[]; done: bo
                     )}
                   </td>
                   <td className="px-1 py-1">{isOrder ? textInput(r, "etc") : null}</td>
-                  <td className="px-2 py-1.5">{r.label}</td>
-                  <td className="whitespace-nowrap px-2 py-1.5">{r.towelColor}</td>
-                  <td className="whitespace-nowrap px-2 py-1.5">{r.embroideryColor}</td>
+                  <td className="px-1 py-1">{isOrder ? textInput(r, "label") : r.label}</td>
+                  <td className="px-1 py-1">{isOrder ? textInput(r, "towelColor") : r.towelColor}</td>
+                  <td className="px-1 py-1">
+                    {isOrder ? textInput(r, "embroideryColor") : r.embroideryColor}
+                  </td>
                   <td className="min-w-[12rem] max-w-[24rem] px-2 py-1.5">
                     {activeNotes.length > 0 && (
                       <span className="font-medium text-red-600">{activeNotes.join(", ")}</span>

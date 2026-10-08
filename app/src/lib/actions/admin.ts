@@ -81,6 +81,20 @@ export type OrderPatch = Partial<
     | "export_etc"
     | "notes_ack"
     | "exported_at"
+    | "label_design"
+    | "event_date"
+    | "birthday_date"
+    | "baby_name_kr"
+    | "baby_name_en"
+    | "father_name"
+    | "mother_name"
+    | "groom_name_kr"
+    | "groom_name_en"
+    | "bride_name_kr"
+    | "bride_name_en"
+    | "towel_color"
+    | "towel_quantity"
+    | "embroidery_color"
   >
 >;
 

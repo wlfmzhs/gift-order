@@ -3,13 +3,32 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { updateOrderAction, type OrderPatch } from "@/lib/actions/admin";
-import type { OrderRecord, OrderStatus } from "@/lib/types";
+import type { LabelDesign, OrderRecord, OrderStatus } from "@/lib/types";
 
 const STATUS_OPTIONS: OrderStatus[] = ["접수완료", "발송완료"];
 
 const inputClass =
   "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-brand";
 const labelClass = "text-xs font-medium text-muted";
+
+const LABEL_OPTIONS: LabelDesign[] = ["A", "B", "C", "D", "E", "F"];
+
+// 고객이 주문서에 적은 내용. 화면에서는 문자열로 다루고, 저장할 때 빈 칸은 null로 바꾼다.
+const CONTENT_TEXT_FIELDS = [
+  ["event_date", "행사일 (YYYY-MM-DD)"],
+  ["birthday_date", "아기 첫 생일(돌) (YYYY-MM-DD)"],
+  ["baby_name_kr", "아기 이름(한글)"],
+  ["baby_name_en", "아기 이름(영문)"],
+  ["father_name", "아빠 성함"],
+  ["mother_name", "엄마 성함"],
+  ["groom_name_kr", "신랑 성함(한글)"],
+  ["groom_name_en", "신랑 성함(영문)"],
+  ["bride_name_kr", "신부 성함(한글)"],
+  ["bride_name_en", "신부 성함(영문)"],
+  ["towel_color", "타올 색상"],
+  ["embroidery_color", "자수 색상"],
+] as const;
+type ContentField = (typeof CONTENT_TEXT_FIELDS)[number][0];
 
 export default function AdminOrderEditForm({ order }: { order: OrderRecord }) {
   const router = useRouter();
@@ -30,6 +49,14 @@ export default function AdminOrderEditForm({ order }: { order: OrderRecord }) {
     export_birthday: order.export_birthday,
     export_etc: order.export_etc,
   });
+  const [label, setLabel] = useState<LabelDesign>(order.label_design);
+  const [towelQty, setTowelQty] = useState(order.towel_quantity ? String(order.towel_quantity) : "");
+  const [content, setContent] = useState<Record<ContentField, string>>(
+    () =>
+      Object.fromEntries(
+        CONTENT_TEXT_FIELDS.map(([k]) => [k, (order[k] as string | null) ?? ""])
+      ) as Record<ContentField, string>
+  );
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -40,7 +67,15 @@ export default function AdminOrderEditForm({ order }: { order: OrderRecord }) {
     setSaving(true);
     setMessage(null);
     try {
-      const result = await updateOrderAction(order.id, values);
+      const contentPatch: OrderPatch = { label_design: label };
+      for (const [k] of CONTENT_TEXT_FIELDS) {
+        const v = content[k].trim();
+        // 행사일은 비울 수 없고, 나머지 빈 칸은 null로 저장한다.
+        (contentPatch as Record<string, unknown>)[k] = v === "" && k !== "event_date" ? null : v;
+      }
+      if (content.event_date.trim() === "") delete contentPatch.event_date;
+      contentPatch.towel_quantity = towelQty.trim() === "" ? null : Number(towelQty);
+      const result = await updateOrderAction(order.id, { ...values, ...contentPatch });
       if (result.ok && (values.tracking_no ?? "").trim() !== "") {
         setValues((v) => ({ ...v, status: "발송완료" }));
       }
@@ -143,6 +178,48 @@ export default function AdminOrderEditForm({ order }: { order: OrderRecord }) {
               className={inputClass}
               value={values.recipient_address2 ?? ""}
               onChange={(e) => set("recipient_address2", e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-border bg-surface p-5">
+        <h2 className="font-semibold">고객이 적은 주문 내용 수정</h2>
+        <p className="mt-1 text-xs text-muted">
+          고객이 제출한 내용을 직접 고칠 수 있어요. 입력 규칙 검사 없이 그대로 저장돼요.
+        </p>
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className={labelClass}>라벨 디자인</label>
+            <select
+              className={inputClass}
+              value={label}
+              onChange={(e) => setLabel(e.target.value as LabelDesign)}
+            >
+              {LABEL_OPTIONS.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </div>
+          {CONTENT_TEXT_FIELDS.map(([k, text]) => (
+            <div key={k}>
+              <label className={labelClass}>{text}</label>
+              <input
+                className={inputClass}
+                value={content[k]}
+                onChange={(e) => setContent((c) => ({ ...c, [k]: e.target.value }))}
+              />
+            </div>
+          ))}
+          <div>
+            <label className={labelClass}>타올 수량 (숫자)</label>
+            <input
+              className={inputClass}
+              inputMode="numeric"
+              value={towelQty}
+              onChange={(e) => setTowelQty(e.target.value.replace(/\D/g, ""))}
             />
           </div>
         </div>
