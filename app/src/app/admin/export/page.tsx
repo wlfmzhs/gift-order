@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import Link from "next/link";
 import AdminHeader from "@/components/AdminHeader";
 import ExportGrid from "@/components/ExportGrid";
+import IgnoredPayments from "@/components/IgnoredPayments";
 import ExportedPaste from "@/components/ExportedPaste";
 import ExportUpload from "@/components/ExportUpload";
 import NormalizeButton from "@/components/NormalizeButton";
@@ -33,9 +34,12 @@ export default async function AdminExportPage({
 
   // 결제 내역 테이블이 아직 없으면(Supabase에 SQL 미실행) 주문서만이라도 보여준다.
   let payments: PaymentRecord[] = [];
+  let ignoredPayments: PaymentRecord[] = [];
   let paymentsError: string | null = null;
   try {
-    payments = (await paymentsDb.list()).filter((p) => !p.ignored);
+    const allPayments = await paymentsDb.list();
+    ignoredPayments = allPayments.filter((p) => p.ignored);
+    payments = allPayments.filter((p) => !p.ignored);
     const reconciled = await reconcilePayments(orders, payments);
     orders = reconciled.orders;
     payments = reconciled.payments;
@@ -124,6 +128,7 @@ export default async function AdminExportPage({
               <ExportUpload />
               <NormalizeButton />
               <ExportedPaste />
+              <IgnoredPayments payments={ignoredPayments} />
             </div>
           )}
 

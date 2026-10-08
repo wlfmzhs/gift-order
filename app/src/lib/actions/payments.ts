@@ -253,3 +253,19 @@ export async function linkPaymentsAction(
     };
   }
 }
+
+/** 삭제(숨김)했던 결제를 다시 목록에 되살린다. */
+export async function restorePaymentAction(
+  paymentId: string
+): Promise<{ ok: boolean; message?: string }> {
+  try {
+    await requireAdmin();
+    await paymentsDb.update(paymentId, { ignored: false });
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : "복구 중 오류가 발생했습니다.",
+    };
+  }
+}
