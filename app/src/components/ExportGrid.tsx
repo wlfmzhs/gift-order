@@ -4,7 +4,12 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 import { updateOrderAction, type OrderPatch } from "@/lib/actions/admin";
 import { setExportedAction } from "@/lib/actions/exportStatus";
-import { ignorePaymentsAction, linkPaymentsAction } from "@/lib/actions/payments";
+import {
+  ignorePaymentsAction,
+  linkPaymentsAction,
+  updatePaymentsAction,
+  type PaymentEdit,
+} from "@/lib/actions/payments";
 import {
   evaluateOrderRow,
   isAcked,
@@ -77,6 +82,15 @@ const STATE_STYLE: Record<RowState, { label: string; badge: string; row: string 
 };
 
 // 시트에 붙여넣을 때 줄바꿈/탭이 칸 구분을 깨뜨리지 않도록 공백으로 바꾼다.
+// 결제 줄에서 고칠 수 있는 칸 → 결제 내역의 어느 값에 저장하는가
+const PAYMENT_FIELD: Partial<Record<EditableField, keyof PaymentEdit>> = {
+  recipient: "recipient_name",
+  phone: "phone",
+  item: "item_name",
+  amount: "amount",
+  message: "delivery_message",
+};
+
 const sheetCell = (v: string) => v.replace(/[\t\r\n]+/g, " ").trim();
 
 const cellClass =
@@ -101,11 +115,36 @@ export default function ExportGrid({ rows, done }: { rows: ExportRow[]; done: bo
     setEdits((prev) => ({ ...prev, [r.key]: { ...prev[r.key], [f]: value } }));
   };
 
+  // 주문서 줄은 모든 칸, 결제 줄은 이름·연락처(여러 결제가 묶여 있어도 전부 적용)와
+  // 결제가 1건일 때의 품목명·금액·배송메세지를 고칠 수 있다. 체험 분리 줄은 고칠 수 없다.
+  const canEdit = (r: ExportRow, f: EditableField): boolean => {
+    if (r.kind === "order") return true;
+    if (r.kind !== "payment" || !PAYMENT_FIELD[f]) return false;
+    if (f === "recipient" || f === "phone") return true;
+    return r.exportPaymentIds.length === 1;
+  };
+
   const saveCell = async (r: ExportRow, f: EditableField, value: string) => {
-    if (r.kind !== "order" || !r.orderId) return;
     const savedKey = `${r.key}:${f}`;
     const last = savedRef.current[savedKey] ?? r[f];
     if (value === last) return;
+
+    if (r.kind === "payment") {
+      const field = PAYMENT_FIELD[f];
+      if (!field) return;
+      const ids = f === "recipient" || f === "phone" ? r.paymentIds : r.exportPaymentIds;
+      const res = await updatePaymentsAction(ids, { [field]: value });
+      if (!res.ok) {
+        setSaveError(`저장에 실패했어요${res.message ? `: ${res.message}` : ""}`);
+        return;
+      }
+      savedRef.current[savedKey] = value;
+      setSaveError(null);
+      // 연락처를 고치면 주문서와 다시 매칭될 수 있으니 목록을 새로 불러온다.
+      if (f === "phone") router.refresh();
+      return;
+    }
+    if (r.kind !== "order" || !r.orderId) return;
 
     if (f === "label" && !LABELS.includes(value)) {
       setSaveError("라벨타입은 A~F 중 하나로 입력해주세요.");
@@ -376,22 +415,22 @@ export default function ExportGrid({ rows, done }: { rows: ExportRow[]; done: bo
                     )}
                   </td>
                   <td className="px-1 py-1">
-                    {isOrder ? textInput(r, "recipient") : <span className="px-1">{r.recipient}</span>}
+                    {canEdit(r, "recipient") ? textInput(r, "recipient") : <span className="px-1">{r.recipient}</span>}
                   </td>
                   <td className="px-1 py-1">
-                    {isOrder ? textInput(r, "phone") : <span className="whitespace-nowrap px-1">{r.phone}</span>}
+                    {canEdit(r, "phone") ? textInput(r, "phone") : <span className="whitespace-nowrap px-1">{r.phone}</span>}
                   </td>
                   <td className="min-w-[14rem] max-w-[22rem] px-1 py-1">
                     {isOrder ? textArea(r, "address") : <span className="px-1">{r.address}</span>}
                   </td>
                   <td className="px-1 py-1">
-                    {isOrder ? textArea(r, "item") : <span className="px-1">{r.item}</span>}
+                    {canEdit(r, "item") ? textArea(r, "item") : <span className="px-1">{r.item}</span>}
                   </td>
                   <td className="px-1 py-1">
-                    {isOrder ? textArea(r, "message") : <span className="px-1">{r.message}</span>}
+                    {canEdit(r, "message") ? textArea(r, "message") : <span className="px-1">{r.message}</span>}
                   </td>
                   <td className="px-1 py-1">
-                    {isOrder ? textInput(r, "amount") : <span className="px-1">{r.amount}</span>}
+                    {canEdit(r, "amount") ? textInput(r, "amount") : <span className="px-1">{r.amount}</span>}
                   </td>
                   <td className="px-1 py-1">{isOrder ? textInput(r, "birthday") : null}</td>
                   <td className="px-1 py-1">

@@ -317,3 +317,30 @@ export async function movePaymentAction(
     };
   }
 }
+
+export interface PaymentEdit {
+  recipient_name?: string;
+  phone?: string;
+  item_name?: string;
+  amount?: string;
+  delivery_message?: string;
+}
+
+/** 주문서가 없는 결제 줄의 내용을 직접 고친다. (연락처를 고치면 다음 새로고침 때 주문서와 다시 매칭된다) */
+export async function updatePaymentsAction(
+  paymentIds: string[],
+  edit: PaymentEdit
+): Promise<{ ok: boolean; message?: string }> {
+  try {
+    await requireAdmin();
+    const patch: Record<string, string> = { ...edit };
+    if (edit.phone !== undefined) patch.phone_norm = normalizePhone(edit.phone);
+    for (const id of paymentIds) await paymentsDb.update(id, patch);
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : "저장 중 오류가 발생했습니다.",
+    };
+  }
+}
