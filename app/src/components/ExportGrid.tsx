@@ -183,7 +183,7 @@ export default function ExportGrid({ rows, done }: { rows: ExportRow[]; done: bo
     setSelected(allSelected ? new Set() : new Set(rows.map((r) => r.key)));
 
   const copyRows = async (target: ExportRow[]): Promise<boolean> => {
-    const lines = target.map((r) =>
+    const rowsCells = target.map((r) =>
       [
         val(r, "recipient"),
         val(r, "phone"),
@@ -201,12 +201,40 @@ export default function ExportGrid({ rows, done }: { rows: ExportRow[]; done: bo
           ? []
           : evaluated(r).notes
         ).join(", "),
-      ]
-        .map(sheetCell)
-        .join("\t")
+      ].map(sheetCell)
     );
+    const text = rowsCells.map((cells) => cells.join("\t")).join("\n");
+    // 3종 세트 품목(4번째 칸)은 붙여넣을 때 빨간 글씨가 되도록 HTML 표로도 담는다.
+    const esc = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const html =
+      "<table>" +
+      rowsCells
+        .map(
+          (cells) =>
+            "<tr>" +
+            cells
+              .map((c, i) =>
+                i === 3 && c.includes("3종")
+                  ? `<td style="color:#ff0000"><span style="color:#ff0000">${esc(c)}</span></td>`
+                  : `<td>${esc(c)}</td>`
+              )
+              .join("") +
+            "</tr>"
+        )
+        .join("") +
+      "</table>";
     try {
-      await navigator.clipboard.writeText(lines.join("\n"));
+      try {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/plain": new Blob([text], { type: "text/plain" }),
+            "text/html": new Blob([html], { type: "text/html" }),
+          }),
+        ]);
+      } catch {
+        await navigator.clipboard.writeText(text);
+      }
       return true;
     } catch {
       setSaveError("복사에 실패했어요. 브라우저의 클립보드 권한을 확인해주세요.");
