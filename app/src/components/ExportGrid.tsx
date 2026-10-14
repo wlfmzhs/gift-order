@@ -218,8 +218,8 @@ export default function ExportGrid({ rows, done }: { rows: ExportRow[]; done: bo
             cells
               .map((c, i) =>
                 i === 3 && c.includes("3종")
-                  ? `<td align="center" style="${base};color:#ff0000"><span style="font-size:8pt;color:#ff0000">${esc(c)}</span></td>`
-                  : `<td align="center" style="${base}"><span style="font-size:8pt">${esc(c)}</span></td>`
+                  ? `<td align="center" valign="middle" style="${base};color:#ff0000"><span style="font-size:8pt;color:#ff0000">${esc(c)}</span></td>`
+                  : `<td align="center" valign="middle" style="${base}"><span style="font-size:8pt">${esc(c)}</span></td>`
               )
               .join("") +
             "</tr>"
