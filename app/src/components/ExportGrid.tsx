@@ -207,8 +207,10 @@ export default function ExportGrid({ rows, done }: { rows: ExportRow[]; done: bo
     // 3종 세트 품목(4번째 칸)은 붙여넣을 때 빨간 글씨가 되도록 HTML 표로도 담는다.
     const esc = (s: string) =>
       s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const base =
+      "font-size:8pt;text-align:center;vertical-align:middle;border:1px solid #000000";
     const html =
-      "<table>" +
+      '<table border="1" cellspacing="0" cellpadding="2" style="border-collapse:collapse;border:1px solid #000000">' +
       rowsCells
         .map(
           (cells) =>
@@ -216,8 +218,8 @@ export default function ExportGrid({ rows, done }: { rows: ExportRow[]; done: bo
             cells
               .map((c, i) =>
                 i === 3 && c.includes("3종")
-                  ? `<td style="color:#ff0000"><span style="color:#ff0000">${esc(c)}</span></td>`
-                  : `<td>${esc(c)}</td>`
+                  ? `<td align="center" style="${base};color:#ff0000"><span style="font-size:8pt;color:#ff0000">${esc(c)}</span></td>`
+                  : `<td align="center" style="${base}"><span style="font-size:8pt">${esc(c)}</span></td>`
               )
               .join("") +
             "</tr>"
